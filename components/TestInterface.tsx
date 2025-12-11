@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { 
   ArrowLeft, ArrowRight, Menu, Play, Pause, 
@@ -28,12 +29,13 @@ const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant
   children, 
   ...props 
 }) => {
-  const baseStyle = "inline-flex items-center justify-center rounded-lg text-sm font-bold transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-11 px-6 active:scale-95";
+  // Changed px-6 to px-2 sm:px-6 and h-10/11 for responsive mobile layout
+  const baseStyle = "inline-flex items-center justify-center rounded-lg text-xs sm:text-sm font-bold transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-10 sm:h-11 px-2 sm:px-6 active:scale-95";
   const variants = {
     default: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200",
     secondary: "bg-gray-900 text-white hover:bg-black shadow-lg",
     outline: "border-2 border-gray-200 bg-transparent hover:bg-gray-50 text-gray-700",
-    ghost: "hover:bg-gray-100 text-gray-700 h-10 px-3"
+    ghost: "hover:bg-gray-100 text-gray-700 px-2 sm:px-3"
   };
   return (
     <button className={`${baseStyle} ${variants[variant]} ${className}`} {...props}>
@@ -352,7 +354,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
       {/* HEADER */}
       <header className="shrink-0 bg-white shadow-sm border-b border-gray-200 z-20 relative">
         <div className="p-2 md:p-3 border-b border-gray-100">
-          <div className="flex justify-between items-center max-w-5xl mx-auto w-full">
+          <div className="flex justify-between items-center max-w-6xl mx-auto w-full">
             <div className="flex items-center gap-3">
                {/* Pause / Back Button */}
                {isSolutionMode ? (
@@ -403,7 +405,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
         </div>
         
         <div className="px-3 py-1.5 bg-gray-50">
-          <div className="flex justify-between items-center text-sm max-w-5xl mx-auto w-full">
+          <div className="flex justify-between items-center text-sm max-w-6xl mx-auto w-full">
             <div className="flex items-center gap-3 md:gap-4">
               <div className="bg-emerald-600 text-white rounded-md w-6 h-6 flex items-center justify-center font-bold text-xs shadow-sm">
                 {currentQuestionIndex + 1}
@@ -440,7 +442,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
         onTouchMove={!isSolutionMode ? onTouchMove : undefined}
         onTouchEnd={!isSolutionMode ? onTouchEnd : undefined}
       >
-        <div className="max-w-3xl mx-auto pb-10">
+        <div className="max-w-6xl mx-auto pb-10">
             {/* Question Card */}
             <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 mb-6">
                 <p className={`text-lg md:text-xl font-medium text-gray-900 leading-relaxed ${lang === 'hi' ? 'font-serif' : ''}`}>
@@ -449,9 +451,11 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
             </div>
             
             {/* Options List */}
-            <div className="space-y-3 pb-6">
+            <div className="space-y-3 pb-6" key={currentQuestionIndex}>
             {currentQ.options.map((option) => {
                 const key = option.label;
+                // Add unique key based on question index to force re-render and clear sticky states
+                const uniqueKey = `${currentQuestionIndex}-${key}`; 
                 const optionText = lang === 'en' ? option.text_en : option.text_hi;
                 
                 const isSelected = currentStat?.selectedOption === key;
@@ -477,7 +481,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
 
                 return (
                 <button 
-                    key={key} 
+                    key={uniqueKey} 
                     onClick={() => handleOptionSelect(key)} 
                     disabled={isSolutionMode || isPaused}
                     className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-start gap-4 ${containerClass}`}
@@ -515,7 +519,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
 
       {/* FOOTER */}
       <footer className={`shrink-0 p-3 bg-white border-t border-gray-200 z-20 transition-all duration-300 ${isPaused ? 'blur-sm pointer-events-none' : ''}`}>
-        <div className={`grid ${isSolutionMode ? 'grid-cols-2' : 'grid-cols-3'} gap-3 max-w-3xl mx-auto`}>
+        <div className={`grid ${isSolutionMode ? 'grid-cols-2' : 'grid-cols-3'} gap-3 max-w-6xl mx-auto`}>
           {isSolutionMode ? (
             <>
               <Button variant="outline" onClick={handlePrev} disabled={currentQuestionIndex === 0}>

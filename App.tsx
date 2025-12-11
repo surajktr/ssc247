@@ -451,7 +451,8 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-900">
       <Header />
       
-      <main className="max-w-3xl mx-auto p-3 space-y-4">
+      {/* Changed max-w-3xl to max-w-6xl for wider view on Desktop */}
+      <main className="max-w-6xl mx-auto p-3 space-y-4">
         
         {/* Category Navigation */}
         <section className="grid grid-cols-2 gap-3">
