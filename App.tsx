@@ -7,7 +7,7 @@ import { TestInterface } from './components/TestInterface';
 import { BlogPost, Category, CurrentAffairEntry, QuizResult, QuizQuestion, QuizProgress, VocabEntry, VocabQuestionRaw } from './types';
 import { supabase } from './lib/supabase';
 import { 
-  Loader2, Calendar, PlayCircle, RotateCcw, CheckCircle2, 
+  Loader2, Calendar, PlayCircle, RotateCcw, 
   Lock, ChevronDown, ChevronRight, ChevronUp, FileText, ArrowLeft, 
   ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Globe, Clock, Trophy, Play
 } from 'lucide-react';
