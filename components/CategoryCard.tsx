@@ -40,7 +40,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, isSelected, onCli
         relative w-full text-left group
         flex items-center p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 ease-out
         ${isSelected 
-          ? 'border-emerald-500 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-500' 
+          ? 'border-blue-500 bg-blue-50/50 shadow-sm ring-1 ring-blue-500' 
           : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
         }
       `}
@@ -63,7 +63,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, isSelected, onCli
       
       {isSelected && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:block">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
         </div>
       )}
     </button>

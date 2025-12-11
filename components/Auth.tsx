@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, Loader2, ArrowRight, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
@@ -76,11 +77,11 @@ export default function Auth() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-gray-100 relative overflow-hidden">
         
         {/* Top Accent Line */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-emerald-700"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-blue-700"></div>
 
         <div className="text-center">
           <h2 className="mt-2 text-3xl font-extrabold text-gray-900 tracking-tight">
-            THE <span className="text-emerald-600">NEWS</span>
+            THE <span className="text-blue-600">NEWS</span>
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             {isLogin ? 'Sign in to access your dashboard' : 'Create a new account'}
@@ -99,7 +100,7 @@ export default function Auth() {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-t-xl relative block w-full px-3 py-3 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm transition-colors"
+                className="appearance-none rounded-t-xl relative block w-full px-3 py-3 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition-colors"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -115,7 +116,7 @@ export default function Auth() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="appearance-none rounded-b-xl relative block w-full px-3 py-3 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm transition-colors"
+                className="appearance-none rounded-b-xl relative block w-full px-3 py-3 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition-colors"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -135,7 +136,7 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading || connectionStatus === 'error'}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform active:scale-95"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform active:scale-95"
             >
               {loading ? (
                 <Loader2 className="animate-spin h-5 w-5" />
@@ -155,7 +156,7 @@ export default function Auth() {
                 setIsLogin(!isLogin);
                 setError(null);
             }}
-            className="text-sm font-medium text-emerald-600 hover:text-emerald-500 transition-colors"
+            className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
           >
             {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
           </button>
@@ -169,7 +170,7 @@ export default function Auth() {
             {connectionStatus === 'error' && (
                 <button 
                     onClick={checkConnection}
-                    className="text-emerald-600 hover:text-emerald-700 flex items-center"
+                    className="text-blue-600 hover:text-blue-700 flex items-center"
                 >
                     <RefreshCw className="w-3 h-3 mr-1" /> Retry
                 </button>
@@ -186,12 +187,12 @@ export default function Auth() {
             
             {connectionStatus === 'connected' && (
                 <div className="flex items-center w-full">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 mr-2"></div>
+                    <div className="h-2 w-2 rounded-full bg-blue-500 mr-2"></div>
                     <div className="flex-1">
                         <p className="text-gray-700 font-medium">Connected to Supabase</p>
                         <p className="text-gray-400 text-[10px] truncate">{projectUrl}</p>
                     </div>
-                    <Wifi className="h-4 w-4 text-emerald-500 opacity-50" />
+                    <Wifi className="h-4 w-4 text-blue-500 opacity-50" />
                 </div>
             )}
             

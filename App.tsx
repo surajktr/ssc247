@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Header from './components/Header';
 import CategoryCard from './components/CategoryCard';
@@ -54,16 +53,16 @@ const App: React.FC = () => {
       label: 'Current Affairs',
       iconType: 'svg',
       iconContent: 'globe',
-      gradientClass: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
-      shadowClass: 'shadow-emerald-200'
+      gradientClass: 'bg-gradient-to-br from-blue-500 to-blue-600',
+      shadowClass: 'shadow-blue-200'
     },
     {
       id: 'vocab',
       label: 'Vocab',
       iconType: 'svg',
       iconContent: 'book',
-      gradientClass: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      shadowClass: 'shadow-blue-200'
+      gradientClass: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+      shadowClass: 'shadow-indigo-200'
     }
   ];
 
@@ -477,7 +476,7 @@ const App: React.FC = () => {
                   onClick={() => setCurrentAffairsTab(tab)}
                   className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
                     currentAffairsTab === tab 
-                      ? 'bg-emerald-100 text-emerald-800 shadow-sm' 
+                      ? 'bg-blue-100 text-blue-800 shadow-sm' 
                       : 'text-gray-500 hover:bg-gray-50'
                   }`}
                 >
@@ -488,7 +487,7 @@ const App: React.FC = () => {
 
             {/* List Content */}
             {loadingCurrentAffairs ? (
-                <div className="flex flex-col items-center justify-center py-20 text-emerald-600">
+                <div className="flex flex-col items-center justify-center py-20 text-blue-600">
                     <Loader2 className="w-8 h-8 animate-spin mb-2" />
                     <span className="text-sm font-medium">Loading updates...</span>
                 </div>
@@ -509,15 +508,15 @@ const App: React.FC = () => {
                                 <div key={month} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-300">
                                     <button 
                                         onClick={() => toggleAccordion(month)}
-                                        className={`w-full flex items-center justify-between p-3 transition-colors ${isExpanded ? 'bg-emerald-50/50' : 'bg-white hover:bg-gray-50'}`}
+                                        className={`w-full flex items-center justify-between p-3 transition-colors ${isExpanded ? 'bg-blue-50/50' : 'bg-white hover:bg-gray-50'}`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={`p-2 rounded-lg ${isExpanded ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                                            <div className={`p-2 rounded-lg ${isExpanded ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
                                                 <Calendar className="w-5 h-5" />
                                             </div>
-                                            <span className={`block font-bold text-base ${isExpanded ? 'text-emerald-900' : 'text-gray-800'}`}>{month}</span>
+                                            <span className={`block font-bold text-base ${isExpanded ? 'text-blue-900' : 'text-gray-800'}`}>{month}</span>
                                         </div>
-                                        {isExpanded ? <ChevronUp className="w-5 h-5 text-emerald-600" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                                        {isExpanded ? <ChevronUp className="w-5 h-5 text-blue-600" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
                                     </button>
 
                                     {isExpanded && (
@@ -541,12 +540,6 @@ const App: React.FC = () => {
                                                                     ? "Available after week ends" 
                                                                     : `${week.questionCount} Questions`
                                                                 }
-                                                                {!result && isResumable && (
-                                                                     <>
-                                                                        <span className="mx-2 text-gray-300">•</span>
-                                                                        <span className="text-amber-600 font-bold uppercase tracking-wider text-[10px]">In Progress</span>
-                                                                     </>
-                                                                )}
                                                             </p>
                                                         </div>
 
@@ -559,13 +552,13 @@ const App: React.FC = () => {
                                                                 <>
                                                                     <button 
                                                                         onClick={() => setActiveQuiz({ entry: getVirtualWeekEntry(week, month), mode: 'solution' })}
-                                                                        className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200"
+                                                                        className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
                                                                     >
                                                                         Sol.
                                                                     </button>
                                                                     <button 
                                                                         onClick={() => startWeeklyQuiz(week, month)}
-                                                                        className="p-1.5 text-gray-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors"
+                                                                        className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                                                                         title="Re-attempt"
                                                                     >
                                                                         <RotateCcw className="w-4 h-4" />
@@ -575,7 +568,7 @@ const App: React.FC = () => {
                                                                 <button 
                                                                     onClick={() => canAttempt && startWeeklyQuiz(week, month)}
                                                                     disabled={!canAttempt}
-                                                                    className={`flex items-center justify-center px-4 py-2 ${isResumable ? 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-200'} text-xs font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap`}
+                                                                    className={`flex items-center justify-center px-4 py-2 ${isResumable ? 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200'} text-xs font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap`}
                                                                 >
                                                                     {isResumable ? (
                                                                         <>Resume <PlayCircle className="w-3 h-3 ml-1 fill-current" /></>
@@ -600,18 +593,18 @@ const App: React.FC = () => {
                             <div key={month} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-300">
                                 <button 
                                     onClick={() => toggleAccordion(month)}
-                                    className={`w-full flex items-center justify-between p-3 transition-colors ${isExpanded ? 'bg-emerald-50/50' : 'bg-white hover:bg-gray-50'}`}
+                                    className={`w-full flex items-center justify-between p-3 transition-colors ${isExpanded ? 'bg-blue-50/50' : 'bg-white hover:bg-gray-50'}`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${isExpanded ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                                        <div className={`p-2 rounded-lg ${isExpanded ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
                                             <Calendar className="w-5 h-5" />
                                         </div>
                                         <div className="text-left">
-                                            <span className={`block font-bold text-base ${isExpanded ? 'text-emerald-900' : 'text-gray-800'}`}>{month}</span>
+                                            <span className={`block font-bold text-base ${isExpanded ? 'text-blue-900' : 'text-gray-800'}`}>{month}</span>
                                             <span className="text-xs text-gray-500 font-medium">{items.length} updates</span>
                                         </div>
                                     </div>
-                                    {isExpanded ? <ChevronUp className="w-5 h-5 text-emerald-600" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                                    {isExpanded ? <ChevronUp className="w-5 h-5 text-blue-600" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
                                 </button>
                                 
                                 {isExpanded && (
@@ -635,12 +628,6 @@ const App: React.FC = () => {
                                                             {new Date(entry.upload_date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                                                             <span className="mx-2 text-gray-300">•</span>
                                                             <span>{questionCount} Questions</span>
-                                                            {!result && isResumable && (
-                                                                 <>
-                                                                    <span className="mx-2 text-gray-300">•</span>
-                                                                    <span className="text-amber-600 font-bold uppercase tracking-wider text-[10px]">In Progress</span>
-                                                                 </>
-                                                            )}
                                                         </p>
                                                     </div>
                                                     
@@ -649,13 +636,13 @@ const App: React.FC = () => {
                                                             <>
                                                                 <button 
                                                                     onClick={() => setActiveQuiz({ entry, mode: 'solution' })}
-                                                                    className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200"
+                                                                    className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
                                                                 >
                                                                     Sol.
                                                                 </button>
                                                                 <button 
                                                                     onClick={() => startQuiz(entry)}
-                                                                    className="p-1.5 text-gray-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors"
+                                                                    className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                                                                     title="Re-attempt"
                                                                 >
                                                                     <RotateCcw className="w-4 h-4" />
@@ -664,7 +651,7 @@ const App: React.FC = () => {
                                                         ) : (
                                                             <button 
                                                                 onClick={() => startQuiz(entry)}
-                                                                className={`flex items-center justify-center px-4 py-2 ${isResumable ? 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-200'} text-xs font-bold rounded-lg transition-all active:scale-95 whitespace-nowrap`}
+                                                                className={`flex items-center justify-center px-4 py-2 ${isResumable ? 'bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-200'} text-xs font-bold rounded-lg transition-all active:scale-95 whitespace-nowrap`}
                                                             >
                                                                 {isResumable ? (
                                                                     <>Resume <PlayCircle className="w-3 h-3 ml-1 fill-current" /></>
@@ -747,12 +734,6 @@ const App: React.FC = () => {
                                                 </h3>
                                                 <p className="text-xs text-gray-500 font-medium mt-0.5">
                                                     {count} Questions • {new Date(vocabEntry.upload_date).getFullYear()}
-                                                    {!result && isResumable && (
-                                                         <>
-                                                            <span className="mx-2 text-gray-300">•</span>
-                                                            <span className="text-amber-600 font-bold uppercase tracking-wider text-[10px]">In Progress</span>
-                                                         </>
-                                                    )}
                                                 </p>
                                             </div>
                                         </div>
