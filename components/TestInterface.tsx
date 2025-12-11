@@ -105,7 +105,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
     if (initialProgress?.questionStats) {
         const answers: Record<number, string> = {};
         Object.entries(initialProgress.questionStats).forEach(([key, stat]) => {
-            if (stat.selectedOption) answers[Number(key)] = stat.selectedOption;
+            const qs = stat as QuestionStatus;
+            if (qs.selectedOption) answers[Number(key)] = qs.selectedOption;
         });
         return answers;
     }
@@ -141,7 +142,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
             setTimeElapsed(existingResult.timeTakenSeconds);
             const answers: Record<number, string> = {};
             Object.entries(existingResult.questionStats).forEach(([key, stat]) => {
-                if (stat.selectedOption) answers[Number(key)] = stat.selectedOption;
+                const qs = stat as QuestionStatus;
+                if (qs.selectedOption) answers[Number(key)] = qs.selectedOption;
             });
             setUserAnswers(answers);
         }
@@ -309,7 +311,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
   };
 
   // View Score Mode
-  const [viewingScore, setViewingScore] = useState(mode === 'solution' && !!existingResult);
+  const [viewingScore, setViewingScore] = useState(initialMode === 'solution' && !!existingResult);
   
   if (viewingScore && existingResult) {
       return (
