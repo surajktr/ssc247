@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   ArrowLeft, ArrowRight, Menu, Play, Pause, 
   Timer, Star, CheckCircle, XCircle, Languages, X, Home,
-  Award, AlertCircle, BarChart3, List, ChevronRight
+  Award, AlertCircle, BarChart3, List, ChevronRight, Clock, HelpCircle, CheckSquare
 } from "lucide-react";
 import { CurrentAffairEntry, QuizResult, QuestionStatus, QuizProgress } from "../types";
 
@@ -17,24 +17,24 @@ interface TestInterfaceProps {
 
 // Helper Components
 const Badge: React.FC<{ className?: string; children: React.ReactNode }> = ({ className = "", children }) => (
-  <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-gray-500/10 ${className}`}>
+  <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ring-1 ring-inset ring-gray-500/10 ${className}`}>
     {children}
   </span>
 );
 
-const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'outline' | 'ghost' | 'secondary' }> = ({ 
+const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'danger' }> = ({ 
   className = "", 
   variant = 'default', 
   children, 
   ...props 
 }) => {
-  // Adjusted padding and text size for better mobile fit
-  const baseStyle = "inline-flex items-center justify-center rounded-lg text-xs sm:text-sm font-bold transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-10 sm:h-11 px-3 sm:px-6 active:scale-95 whitespace-nowrap";
+  const baseStyle = "inline-flex items-center justify-center rounded-xl text-sm font-bold transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-12 px-6 active:scale-[0.98] whitespace-nowrap shadow-sm";
   const variants = {
-    default: "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200",
-    secondary: "bg-gray-900 text-white hover:bg-black shadow-lg",
-    outline: "border-2 border-gray-200 bg-transparent hover:bg-gray-50 text-gray-700",
-    ghost: "hover:bg-gray-100 text-gray-700 px-2 sm:px-3"
+    default: "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200 border border-transparent",
+    secondary: "bg-gray-900 text-white hover:bg-black border border-transparent",
+    outline: "border-2 border-gray-200 bg-white hover:bg-gray-50 text-gray-700 hover:border-gray-300",
+    ghost: "hover:bg-gray-100 text-gray-600 px-3 shadow-none",
+    danger: "bg-red-50 text-red-600 hover:bg-red-100 border border-red-100"
   };
   return (
     <button className={`${baseStyle} ${variants[variant]} ${className}`} {...props}>
@@ -43,71 +43,109 @@ const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant
   );
 };
 
-// Score Card Component
+// --- Modern Score Card Component ---
 const ScoreCard: React.FC<{ result: QuizResult; onViewSolutions: () => void }> = ({ result, onViewSolutions }) => {
     const percentage = Math.round((result.score / result.total) * 100);
     const answered = Object.values(result.questionStats).filter((q) => (q as QuestionStatus).selectedOption).length;
     const skipped = result.total - answered;
+    const wrong = answered - Math.floor(result.score); // Approximation if no partial marking logic changes
     
-    // Determine color based on percentage
-    const colorClass = percentage >= 80 ? 'text-blue-600' : percentage >= 50 ? 'text-amber-500' : 'text-red-500';
-    const strokeClass = percentage >= 80 ? 'stroke-blue-500' : percentage >= 50 ? 'stroke-amber-500' : 'stroke-red-500';
+    // Theme determination
+    let themeColor = 'text-blue-600';
+    let ringColor = 'stroke-blue-600';
+    let grade = 'Good Job!';
+    
+    if (percentage >= 80) {
+        themeColor = 'text-emerald-600';
+        ringColor = 'stroke-emerald-500';
+        grade = 'Excellent!';
+    } else if (percentage < 50) {
+        themeColor = 'text-amber-600';
+        ringColor = 'stroke-amber-500';
+        grade = 'Keep Practicing';
+    }
     
     // Circle Props
-    const radius = 60;
+    const radius = 58;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
+    const formatTimeTaken = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}m ${s}s`;
+    };
+
     return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 animate-in zoom-in-95 duration-500">
-            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 w-full max-w-md text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+        <div className="flex flex-col items-center justify-center min-h-[80vh] w-full p-4 animate-in fade-in zoom-in-95 duration-500">
+            <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 p-8 w-full max-w-sm text-center relative overflow-hidden">
                 
-                <h2 className="text-2xl font-black text-gray-900 mb-6">Test Submitted!</h2>
-                
-                {/* Score Circle */}
-                <div className="relative w-40 h-40 mx-auto mb-6">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 140 140">
-                        <circle cx="70" cy="70" r={radius} className="stroke-gray-100" strokeWidth="10" fill="transparent" />
-                        <circle 
-                            cx="70" cy="70" r={radius} 
-                            className={`${strokeClass} transition-all duration-1000 ease-out`} 
-                            strokeWidth="10" 
-                            strokeLinecap="round"
-                            fill="transparent"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={strokeDashoffset}
-                        />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className={`text-4xl font-black ${colorClass}`}>{percentage}%</span>
-                        <span className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Accuracy</span>
-                    </div>
-                </div>
+                {/* Background Decor */}
+                <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none"></div>
 
-                <div className="text-lg font-medium text-gray-600 mb-8">
-                    You scored <span className="font-bold text-gray-900">{result.score}</span> out of <span className="font-bold text-gray-900">{result.total}</span>
-                </div>
+                <div className="relative z-10">
+                    <h2 className="text-xl font-bold text-gray-900 mb-1">{grade}</h2>
+                    <p className="text-sm text-gray-500 font-medium mb-8">Assessment Complete</p>
+                    
+                    {/* Progress Circle */}
+                    <div className="relative w-48 h-48 mx-auto mb-8">
+                        {/* Outer Glow */}
+                        <div className={`absolute inset-0 rounded-full blur-2xl opacity-20 ${percentage >= 80 ? 'bg-emerald-400' : 'bg-blue-400'}`}></div>
+                        
+                        <svg className="w-full h-full transform -rotate-90 drop-shadow-sm" viewBox="0 0 140 140">
+                            {/* Track */}
+                            <circle cx="70" cy="70" r={radius} className="stroke-gray-100" strokeWidth="12" fill="transparent" />
+                            {/* Indicator */}
+                            <circle 
+                                cx="70" cy="70" r={radius} 
+                                className={`${ringColor} transition-all duration-1000 ease-out`} 
+                                strokeWidth="12" 
+                                strokeLinecap="round"
+                                fill="transparent"
+                                strokeDasharray={circumference}
+                                strokeDashoffset={strokeDashoffset}
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`text-5xl font-black tracking-tight ${themeColor}`}>
+                                {percentage}%
+                            </span>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">Score</span>
+                        </div>
+                    </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
-                        <div className="text-blue-600 font-black text-xl">{Math.floor(result.score)}</div>
-                        <div className="text-[10px] text-gray-400 uppercase font-bold">Correct</div>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-3 mb-8">
+                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
+                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Correct
+                             </div>
+                             <span className="text-xl font-black text-gray-900">{Math.floor(result.score)}</span>
+                        </div>
+                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
+                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
+                                <XCircle className="w-3.5 h-3.5 text-red-500" /> Wrong
+                             </div>
+                             <span className="text-xl font-black text-gray-900">{wrong}</span>
+                        </div>
+                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
+                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Skipped
+                             </div>
+                             <span className="text-xl font-black text-gray-900">{skipped}</span>
+                        </div>
+                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
+                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
+                                <Clock className="w-3.5 h-3.5 text-blue-500" /> Time
+                             </div>
+                             <span className="text-xl font-black text-gray-900">{result.timeTakenSeconds ? formatTimeTaken(result.timeTakenSeconds) : '--'}</span>
+                        </div>
                     </div>
-                     <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
-                        <div className="text-red-500 font-black text-xl">{answered - Math.floor(result.score)}</div>
-                        <div className="text-[10px] text-gray-400 uppercase font-bold">Wrong</div>
-                    </div>
-                     <div className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
-                        <div className="text-gray-500 font-black text-xl">{skipped}</div>
-                        <div className="text-[10px] text-gray-400 uppercase font-bold">Skipped</div>
-                    </div>
-                </div>
 
-                <Button onClick={onViewSolutions} className="w-full">
-                    Review Solutions <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
+                    <Button onClick={onViewSolutions} className="w-full shadow-lg shadow-blue-200/50">
+                        Detailed Solutions <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                </div>
             </div>
         </div>
     );
@@ -334,16 +372,21 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
       return (
         <div className="fixed inset-0 z-[1200] bg-white overflow-hidden flex flex-col">
             {/* Simple Header for Result */}
-            <header className="p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
-                <h1 className="text-lg font-bold text-gray-800">Result Analysis</h1>
+            <header className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-white z-10 sticky top-0">
+                <div className="flex items-center gap-2">
+                    <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                        <Award className="w-5 h-5" />
+                    </div>
+                    <h1 className="text-lg font-extrabold text-gray-900">Performance</h1>
+                </div>
                 <button 
                   onClick={onExit} 
-                  className="p-2 rounded-full hover:bg-gray-100 text-gray-700 transition-colors"
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
                 >
                     <X className="w-6 h-6" />
                 </button>
             </header>
-            <main className="flex-1 overflow-y-auto bg-gray-50">
+            <main className="flex-1 overflow-y-auto bg-white flex items-center justify-center">
                 <ScoreCard result={existingResult} onViewSolutions={() => setShowSolutionDetails(true)} />
             </main>
         </div>
@@ -365,23 +408,23 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
       
       if (isCorrect) {
           solutionStatusBadge = (
-            <div className="flex items-center text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-200">
+            <div className="flex items-center text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100 shadow-sm">
                 <CheckCircle className="w-4 h-4 mr-1.5" />
-                <span className="text-xs font-bold uppercase">Correct</span>
+                <span className="text-xs font-bold uppercase tracking-wide">Correct</span>
             </div>
           );
       } else if (isSkipped) {
           solutionStatusBadge = (
-            <div className="flex items-center text-gray-500 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
+            <div className="flex items-center text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
                 <AlertCircle className="w-4 h-4 mr-1.5" />
-                <span className="text-xs font-bold uppercase">Skipped</span>
+                <span className="text-xs font-bold uppercase tracking-wide">Skipped</span>
             </div>
           );
       } else {
           solutionStatusBadge = (
-            <div className="flex items-center text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-200">
+            <div className="flex items-center text-red-700 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 shadow-sm">
                 <XCircle className="w-4 h-4 mr-1.5" />
-                <span className="text-xs font-bold uppercase">Wrong</span>
+                <span className="text-xs font-bold uppercase tracking-wide">Wrong</span>
             </div>
           );
       }
@@ -401,14 +444,14 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                {isSolutionMode ? (
                    <button 
                      onClick={() => setShowSolutionDetails(false)}
-                     className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-700 transition-colors"
+                     className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-50 text-gray-600 border border-transparent hover:border-gray-200 transition-all"
                    >
-                     <ArrowLeft className="w-6 h-6" />
+                     <ArrowLeft className="w-5 h-5" />
                    </button>
                ) : (
                    <button 
                     onClick={handlePause}
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-blue-50 hover:text-blue-600 border border-gray-200 hover:border-blue-200 transition-all"
                    >
                      <Pause className="w-5 h-5 fill-current" />
                    </button>
@@ -416,11 +459,11 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
 
               <div className="flex flex-col">
                 {isSolutionMode ? (
-                  <p className="text-base font-bold text-gray-800">Detailed Solutions</p>
+                  <p className="text-base font-bold text-gray-900">Detailed Solutions</p>
                 ) : (
                   <p className="text-base font-bold text-gray-800 tabular-nums flex items-center gap-2">
                     {formatTime(timeRemaining)}
-                    {!isPaused && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>}
+                    {!isPaused && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>}
                   </p>
                 )}
               </div>
@@ -429,15 +472,15 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
             <div className="flex items-center gap-2">
                <button 
                  onClick={() => setLang(prev => prev === 'en' ? 'hi' : 'en')}
-                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 border border-gray-200 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors"
+                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 hover:bg-white hover:shadow-sm transition-all"
                >
                  <Languages className="w-3.5 h-3.5" />
-                 {lang === 'en' ? 'English' : 'हिंदी'}
+                 {lang === 'en' ? 'EN' : 'HI'}
                </button>
 
               <button 
                 onClick={() => setShowMenu(true)}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-700 transition-colors"
+                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-50 text-gray-600 border border-transparent hover:border-gray-200 transition-all"
               >
                 <Menu className="w-6 h-6" />
               </button>
@@ -445,30 +488,30 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
           </div>
         </div>
         
-        <div className="px-3 py-1.5 bg-gray-50">
+        <div className="px-3 py-1.5 bg-gray-50/50 backdrop-blur-sm">
           <div className="flex justify-between items-center text-sm max-w-6xl mx-auto w-full">
             <div className="flex items-center gap-3 md:gap-4">
-              <div className="bg-blue-600 text-white rounded-md w-6 h-6 flex items-center justify-center font-bold text-xs shadow-sm">
+              <div className="bg-gray-900 text-white rounded-lg min-w-[1.5rem] h-6 px-1.5 flex items-center justify-center font-bold text-xs shadow-sm">
                 {currentQuestionIndex + 1}
               </div>
               
               {!isSolutionMode && (
-                <div className="flex items-center gap-1 text-gray-500">
-                  <Timer className="w-4 h-4" />
-                  <span className="tabular-nums">{formatTime(questionTime)}</span>
+                <div className="flex items-center gap-1 text-gray-500 bg-white px-2 py-0.5 rounded-md border border-gray-200 shadow-sm">
+                  <Timer className="w-3.5 h-3.5" />
+                  <span className="tabular-nums text-xs font-bold">{formatTime(questionTime)}</span>
                 </div>
               )}
               
               <div className="flex gap-2">
-                <Badge className="bg-green-100 text-green-700 border-green-200">+1.0</Badge>
-                <Badge className="bg-red-100 text-red-700 border-red-200">-0.25</Badge>
+                <Badge className="bg-green-50 text-green-700 border-green-200">+1.0</Badge>
+                <Badge className="bg-red-50 text-red-700 border-red-200">-0.25</Badge>
               </div>
             </div>
             
             {/* Right Side Controls / Status */}
             <div className="flex items-center gap-3">
                 {!isSolutionMode ? (
-                    <button onClick={handleMarkForReview} className={`transition-colors ${currentStat?.isMarkedForReview ? "text-purple-600" : "text-gray-400 hover:text-gray-600"}`}>
+                    <button onClick={handleMarkForReview} className={`transition-all p-1.5 rounded-lg ${currentStat?.isMarkedForReview ? "bg-purple-50 text-purple-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}>
                         <Star className={`w-5 h-5 ${currentStat?.isMarkedForReview ? "fill-current" : ""}`} />
                     </button>
                 ) : (
@@ -488,9 +531,10 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
         onTouchMove={!isSolutionMode ? onTouchMove : undefined}
         onTouchEnd={!isSolutionMode ? onTouchEnd : undefined}
       >
-        <div className="max-w-6xl mx-auto pb-10">
+        <div className="max-w-6xl mx-auto pb-24">
             {/* Question Card */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 mb-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                 {/* Reduced font size for questions */}
                 <p className={`text-base md:text-lg font-medium text-gray-900 leading-relaxed ${lang === 'hi' ? 'font-serif' : ''}`}>
                     {questionText}
@@ -507,21 +551,21 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                 const isSelected = currentStat?.selectedOption === key;
                 const isCorrectAnswer = currentQ.answer.toLowerCase() === key.toLowerCase();
                 
-                let containerClass = "border-gray-200 hover:border-blue-200 bg-white";
+                let containerClass = "border-gray-200 hover:border-gray-300 bg-white text-gray-700";
                 let iconClass = "bg-gray-100 text-gray-500 border-gray-200";
 
                 if (isSolutionMode) {
                     if (isCorrectAnswer) {
-                        containerClass = "border-green-500 bg-green-50 ring-1 ring-green-500";
+                        containerClass = "border-green-500 bg-green-50 ring-1 ring-green-500 text-green-900";
                         iconClass = "bg-green-500 text-white border-green-500";
                     } else if (isSelected && !isCorrectAnswer) {
-                        containerClass = "border-red-500 bg-red-50";
+                        containerClass = "border-red-500 bg-red-50 text-red-900";
                         iconClass = "bg-red-500 text-white border-red-500";
                     } else if (!isSelected && !isCorrectAnswer) {
                         containerClass = "opacity-60";
                     }
                 } else if (isSelected) {
-                    containerClass = "border-blue-600 bg-blue-50 shadow-sm ring-1 ring-blue-600";
+                    containerClass = "border-blue-600 bg-blue-50 shadow-sm ring-1 ring-blue-600 text-blue-900";
                     iconClass = "bg-blue-600 text-white border-blue-600";
                 }
 
@@ -530,13 +574,13 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                     key={uniqueKey} 
                     onClick={() => handleOptionSelect(key)} 
                     disabled={isSolutionMode || isPaused}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-start gap-4 ${containerClass}`}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-start gap-4 shadow-sm active:scale-[0.99] ${containerClass}`}
                 >
                     <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 border transition-colors uppercase ${iconClass}`}>
                         {key}
                     </span>
                     {/* Reduced font size for options */}
-                    <div className={`flex-1 pt-1 text-gray-800 text-sm font-medium ${lang === 'hi' ? 'font-serif' : ''}`}>
+                    <div className={`flex-1 pt-1 font-medium ${lang === 'hi' ? 'font-serif' : ''}`}>
                         {optionText}
                     </div>
                     {isSolutionMode && isCorrectAnswer && <CheckCircle className="text-green-600 w-6 h-6 shrink-0" />}
@@ -549,10 +593,12 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
             {/* Solution Box */}
             {isSolutionMode && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="p-5 rounded-xl bg-white border border-blue-100 shadow-sm ring-1 ring-blue-50">
+                    <div className="p-6 rounded-2xl bg-white border border-blue-100 shadow-lg shadow-blue-50/50">
                         <p className="text-xs font-bold text-blue-600 uppercase mb-3 tracking-wider flex items-center">
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Correct Solution
+                            <div className="bg-blue-100 p-1 rounded mr-2">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                            </div>
+                            Explanation
                         </p>
                         <div className="text-base text-gray-800 leading-relaxed whitespace-pre-line space-y-2">
                            {solutionTextEn && <p>{renderFormattedText(solutionTextEn)}</p>}
@@ -581,7 +627,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
               <Button variant="outline" onClick={handlePrev} disabled={currentQuestionIndex === 0}>
                 <ArrowLeft className="mr-2 w-4 h-4" /> Prev
               </Button>
-              <Button variant="ghost" onClick={handleClear} className="text-gray-500">
+              <Button variant="ghost" onClick={handleClear} className="text-gray-500 hover:bg-gray-100">
                 Clear
               </Button>
               <Button onClick={handleNext}>
@@ -595,23 +641,22 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
 
       {/* PAUSE OVERLAY */}
       {isPaused && !isSolutionMode && (
-        <div className="absolute inset-0 z-[1250] bg-white/60 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300 p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl text-center border border-gray-100 max-w-sm w-full relative overflow-hidden">
-               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+        <div className="absolute inset-0 z-[1250] bg-white/80 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300 p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl border border-gray-100 max-w-sm w-full relative overflow-hidden text-center transform transition-all scale-100">
                
-               <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-12">
-                 <Pause className="w-8 h-8 text-blue-600" />
+               <div className="mx-auto w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                 <Pause className="w-10 h-10 text-amber-500 fill-current" />
                </div>
                
-               <h2 className="text-2xl font-black text-gray-900 mb-2">Test Paused</h2>
-               <p className="text-gray-500 mb-8 font-medium">Your progress is saved securely.</p>
+               <h2 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Test Paused</h2>
+               <p className="text-gray-500 mb-8 font-medium">Take a break! Your progress is safe.</p>
                
                <div className="space-y-3">
-                   <Button onClick={handleResume} className="w-full text-base h-12">
-                     Resume Test
+                   <Button onClick={handleResume} className="w-full h-14 text-base shadow-blue-200">
+                     <Play className="w-5 h-5 mr-2 fill-current" /> Resume Test
                    </Button>
-                   <Button variant="outline" onClick={handleHome} className="w-full text-base h-12 border-gray-300">
-                     <Home className="w-4 h-4 mr-2" /> Home (Save & Exit)
+                   <Button variant="outline" onClick={handleHome} className="w-full h-14 text-base border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                     <Home className="w-5 h-5 mr-2" /> Save & Exit
                    </Button>
                </div>
           </div>
@@ -621,43 +666,45 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
       {/* PALETTE MENU */}
       {showMenu && (
         <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMenu(false)}></div>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowMenu(false)}></div>
           <div className="relative w-[85%] max-w-xs bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center shrink-0">
-              <h2 className="font-bold text-lg text-gray-800">Question Palette</h2>
-              <button onClick={() => setShowMenu(false)} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-6 h-6 text-gray-400" />
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center shrink-0 bg-gray-50/50">
+              <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                  <List className="w-5 h-5 text-gray-500" /> Question Palette
+              </h2>
+              <button onClick={() => setShowMenu(false)} className="p-2 rounded-full hover:bg-gray-200/50 transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 bg-white">
               <div className="grid grid-cols-5 gap-3">
                 {questions.map((_, idx) => {
                   const stats = questionStats[idx];
-                  let stateClass = "border-gray-200 text-gray-600 bg-white"; 
+                  let stateClass = "border-gray-200 text-gray-600 bg-white hover:border-gray-300"; 
                   
                   if (isSolutionMode) {
                      const isCorrect = stats?.selectedOption?.toLowerCase() === questions[idx].answer.toLowerCase();
                      const isSkipped = !stats?.selectedOption;
                      
-                     if (isCorrect) stateClass = "bg-green-500 text-white border-green-500";
-                     else if (isSkipped) stateClass = "bg-gray-200 text-gray-500 border-gray-200";
-                     else stateClass = "bg-red-500 text-white border-red-500";
+                     if (isCorrect) stateClass = "bg-green-500 text-white border-green-500 shadow-sm";
+                     else if (isSkipped) stateClass = "bg-gray-100 text-gray-400 border-gray-200";
+                     else stateClass = "bg-red-500 text-white border-red-500 shadow-sm";
                   } else {
-                     if (stats?.isMarkedForReview) stateClass = "bg-purple-500 text-white border-purple-500";
-                     else if (stats?.selectedOption) stateClass = "bg-blue-500 text-white border-blue-500";
-                     else if (stats?.isVisited) stateClass = "border-blue-500 text-blue-600 border-dashed";
+                     if (stats?.isMarkedForReview) stateClass = "bg-purple-500 text-white border-purple-500 shadow-sm";
+                     else if (stats?.selectedOption) stateClass = "bg-blue-600 text-white border-blue-600 shadow-sm";
+                     else if (stats?.isVisited) stateClass = "border-blue-400 text-blue-600 bg-blue-50 border-dashed";
                   }
                   
                   if (idx === currentQuestionIndex) {
-                     stateClass += " ring-2 ring-offset-1 ring-blue-500";
+                     stateClass += " ring-2 ring-offset-2 ring-blue-500 z-10 scale-105";
                   }
 
                   return (
                     <button
                       key={idx}
                       onClick={() => { setCurrentQuestionIndex(idx); setShowMenu(false); setQuestionTime(0); }}
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold border shadow-sm transition-all active:scale-95 ${stateClass}`}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border transition-all active:scale-95 ${stateClass}`}
                     >
                       {idx + 1}
                     </button>
@@ -666,18 +713,19 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
               </div>
             </div>
             
-            <div className="p-4 bg-gray-50 border-t border-gray-200 text-xs space-y-2 text-gray-500 shrink-0">
-               <div className="grid grid-cols-2 gap-2 mb-3">
-                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"></span> Answered</div>
-                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-500"></span> Review</div>
-                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-white border border-gray-400"></span> Not Visited</div>
+            <div className="p-5 bg-gray-50 border-t border-gray-200 text-xs space-y-3 text-gray-500 shrink-0">
+               <div className="grid grid-cols-2 gap-3 mb-2">
+                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-600"></div> Answered</div>
+                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div> Review</div>
+                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-white border-2 border-dashed border-blue-400"></div> Visited</div>
+                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-white border border-gray-300"></div> Not Visited</div>
                </div>
                
                {/* Submit Button in Palette */}
                {!isSolutionMode && (
                   <Button 
                     onClick={() => { setShowMenu(false); setShowSubmitDialog(true); }}
-                    className="w-full bg-gray-900 hover:bg-black text-white"
+                    className="w-full bg-gray-900 hover:bg-black text-white shadow-lg"
                   >
                     Submit Test
                   </Button>
@@ -690,31 +738,45 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
       {/* SUBMIT DIALOG */}
       {showSubmitDialog && (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSubmitDialog(false)}></div>
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Submit Test?</h3>
-            <p className="text-gray-500 mb-6 text-sm">
-              Are you sure you want to submit?
-            </p>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowSubmitDialog(false)}></div>
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 overflow-hidden">
             
-            <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-3 rounded-lg text-center text-sm">
-                 <div>
-                    <span className="block font-bold text-gray-800 text-lg">
-                        {Object.values(questionStats).filter((s) => (s as QuestionStatus).selectedOption).length}
-                    </span>
-                    <span className="text-gray-500 text-xs uppercase">Answered</span>
+            <div className="flex flex-col items-center text-center mb-6">
+                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                    <HelpCircle className="w-8 h-8" />
                  </div>
-                 <div>
-                    <span className="block font-bold text-gray-800 text-lg">
-                        {Object.values(questionStats).filter((s) => !(s as QuestionStatus).selectedOption).length}
-                    </span>
-                    <span className="text-gray-500 text-xs uppercase">Skipped</span>
+                 <h3 className="text-2xl font-black text-gray-900 mb-2">Submit Assessment?</h3>
+                 <p className="text-gray-500 text-sm font-medium">
+                   You are about to end this test. This action cannot be undone.
+                 </p>
+            </div>
+            
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-8">
+                 <div className="grid grid-cols-3 gap-2 text-center divide-x divide-gray-200">
+                     <div className="flex flex-col">
+                        <span className="text-2xl font-black text-blue-600">
+                            {Object.values(questionStats).filter((s) => (s as QuestionStatus).selectedOption).length}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Answered</span>
+                     </div>
+                     <div className="flex flex-col">
+                        <span className="text-2xl font-black text-purple-600">
+                            {Object.values(questionStats).filter((s) => (s as QuestionStatus).isMarkedForReview).length}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Review</span>
+                     </div>
+                     <div className="flex flex-col">
+                        <span className="text-2xl font-black text-gray-400">
+                            {Object.values(questionStats).filter((s) => !(s as QuestionStatus).selectedOption).length}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Skipped</span>
+                     </div>
                  </div>
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setShowSubmitDialog(false)}>Cancel</Button>
-              <Button onClick={handleSubmit}>Submit Test</Button>
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => setShowSubmitDialog(false)} className="flex-1 h-12 text-gray-600 hover:bg-gray-100">Cancel</Button>
+              <Button onClick={handleSubmit} className="flex-1 h-12 shadow-blue-200">Confirm Submit</Button>
             </div>
           </div>
         </div>
