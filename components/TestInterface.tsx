@@ -4,7 +4,7 @@ import {
   Timer, Star, CheckCircle, XCircle, Languages, X, Home,
   Award, AlertCircle, BarChart3, List, ChevronRight, Clock, HelpCircle, CheckSquare
 } from "lucide-react";
-import { CurrentAffairEntry, QuizResult, QuestionStatus, QuizProgress } from "../types";
+import { CurrentAffairEntry, QuizResult, QuestionStatus, QuizProgress, QuizQuestion } from "../types";
 
 interface TestInterfaceProps {
   entry: CurrentAffairEntry;
@@ -28,7 +28,7 @@ const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant
   children, 
   ...props 
 }) => {
-  const baseStyle = "inline-flex items-center justify-center rounded-xl text-sm font-bold transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-12 px-6 active:scale-[0.98] whitespace-nowrap shadow-sm";
+  const baseStyle = "inline-flex items-center justify-center rounded-xl text-sm font-bold transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 h-10 px-4 active:scale-[0.98] whitespace-nowrap shadow-sm";
   const variants = {
     default: "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200 border border-transparent",
     secondary: "bg-gray-900 text-white hover:bg-black border border-transparent",
@@ -43,742 +43,449 @@ const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant
   );
 };
 
-// --- Modern Score Card Component ---
+const formatTimeTaken = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
+};
+
+// Score Card Component
 const ScoreCard: React.FC<{ result: QuizResult; onViewSolutions: () => void }> = ({ result, onViewSolutions }) => {
     const percentage = Math.round((result.score / result.total) * 100);
     const answered = Object.values(result.questionStats).filter((q) => (q as QuestionStatus).selectedOption).length;
-    const skipped = result.total - answered;
-    const wrong = answered - Math.floor(result.score); // Approximation if no partial marking logic changes
     
-    // Theme determination
     let themeColor = 'text-blue-600';
-    let ringColor = 'stroke-blue-600';
     let grade = 'Good Job!';
     
     if (percentage >= 80) {
         themeColor = 'text-emerald-600';
-        ringColor = 'stroke-emerald-500';
         grade = 'Excellent!';
     } else if (percentage < 50) {
         themeColor = 'text-amber-600';
-        ringColor = 'stroke-amber-500';
         grade = 'Keep Practicing';
     }
     
-    // Circle Props
-    const radius = 58;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-    const formatTimeTaken = (seconds: number) => {
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return `${m}m ${s}s`;
-    };
-
     return (
-        <div className="flex flex-col items-center justify-center min-h-[80vh] w-full p-4 animate-in fade-in zoom-in-95 duration-500">
-            <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/50 border border-gray-100 p-8 w-full max-w-sm text-center relative overflow-hidden">
+        <div className="flex flex-col items-center justify-center py-10 px-4 animate-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-sm w-full text-center">
+                <div className={`text-4xl font-extrabold mb-2 ${themeColor}`}>{percentage}%</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-1">{grade}</h3>
+                <p className="text-gray-500 mb-6">You scored {result.score} out of {result.total}</p>
                 
-                {/* Background Decor */}
-                <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none"></div>
-
-                <div className="relative z-10">
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">{grade}</h2>
-                    <p className="text-sm text-gray-500 font-medium mb-8">Assessment Complete</p>
-                    
-                    {/* Progress Circle */}
-                    <div className="relative w-48 h-48 mx-auto mb-8">
-                        {/* Outer Glow */}
-                        <div className={`absolute inset-0 rounded-full blur-2xl opacity-20 ${percentage >= 80 ? 'bg-emerald-400' : 'bg-blue-400'}`}></div>
-                        
-                        <svg className="w-full h-full transform -rotate-90 drop-shadow-sm" viewBox="0 0 140 140">
-                            {/* Track */}
-                            <circle cx="70" cy="70" r={radius} className="stroke-gray-100" strokeWidth="12" fill="transparent" />
-                            {/* Indicator */}
-                            <circle 
-                                cx="70" cy="70" r={radius} 
-                                className={`${ringColor} transition-all duration-1000 ease-out`} 
-                                strokeWidth="12" 
-                                strokeLinecap="round"
-                                fill="transparent"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={strokeDashoffset}
-                            />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-5xl font-black tracking-tight ${themeColor}`}>
-                                {percentage}%
-                            </span>
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">Score</span>
-                        </div>
+                <div className="grid grid-cols-2 gap-4 w-full mb-6">
+                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Time</div>
+                        <div className="text-lg font-bold text-gray-800">{formatTimeTaken(result.timeTakenSeconds)}</div>
                     </div>
-
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-3 mb-8">
-                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
-                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Correct
-                             </div>
-                             <span className="text-xl font-black text-gray-900">{Math.floor(result.score)}</span>
-                        </div>
-                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
-                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
-                                <XCircle className="w-3.5 h-3.5 text-red-500" /> Wrong
-                             </div>
-                             <span className="text-xl font-black text-gray-900">{wrong}</span>
-                        </div>
-                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
-                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
-                                <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Skipped
-                             </div>
-                             <span className="text-xl font-black text-gray-900">{skipped}</span>
-                        </div>
-                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center justify-center">
-                             <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase mb-1">
-                                <Clock className="w-3.5 h-3.5 text-blue-500" /> Time
-                             </div>
-                             <span className="text-xl font-black text-gray-900">{result.timeTakenSeconds ? formatTimeTaken(result.timeTakenSeconds) : '--'}</span>
-                        </div>
+                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Attempted</div>
+                        <div className="text-lg font-bold text-gray-800">{answered}/{result.total}</div>
                     </div>
-
-                    <Button onClick={onViewSolutions} className="w-full shadow-lg shadow-blue-200/50">
-                        Detailed Solutions <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
                 </div>
+
+                <Button onClick={onViewSolutions} className="w-full">
+                    Review Solutions <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
             </div>
         </div>
     );
 };
 
-export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initialProgress, existingResult, onExit, onComplete }) => {
-  const isSolutionMode = mode === 'solution';
-  const questions = entry.questions?.questions || [];
-  
+export const TestInterface: React.FC<TestInterfaceProps> = ({
+  entry,
+  mode: initialMode,
+  initialProgress,
+  existingResult,
+  onExit,
+  onComplete
+}) => {
   // State
-  const [lang, setLang] = useState<'en' | 'hi'>('en');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialProgress?.currentQuestionIndex || 0);
-  
-  const [questionStats, setQuestionStats] = useState<Record<number, QuestionStatus>>(() => {
-    if (existingResult) return existingResult.questionStats;
-    if (initialProgress) return initialProgress.questionStats;
-    
-    const initial: Record<number, QuestionStatus> = {};
-    questions.forEach((_, idx) => {
-      initial[idx] = { selectedOption: null, isMarkedForReview: false, isVisited: idx === 0, timeSpent: 0 };
-    });
-    return initial;
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>(() => {
+    if (initialProgress?.questionStats) {
+        const answers: Record<number, string> = {};
+        Object.entries(initialProgress.questionStats).forEach(([key, stat]) => {
+            if (stat.selectedOption) answers[Number(key)] = stat.selectedOption;
+        });
+        return answers;
+    }
+    return {};
   });
   
-  const [timeRemaining, setTimeRemaining] = useState<number>(initialProgress?.timeRemaining ?? questions.length * 60); 
+  // Timer State (in seconds)
+  const [timeElapsed, setTimeElapsed] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [questionTime, setQuestionTime] = useState(0);
   
   // UI State
-  const [showMenu, setShowMenu] = useState(false);
-  const [showSubmitDialog, setShowSubmitDialog] = useState(false);
-  const [showSolutionDetails, setShowSolutionDetails] = useState(false);
-
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const questionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Swipe State
-  const touchStart = useRef<number | null>(null);
-  const touchEnd = useRef<number | null>(null);
-
-  // Reset states when mode changes
-  useEffect(() => {
-    setShowSubmitDialog(false);
-    setShowMenu(false);
-  }, [mode]);
-
-  // --- Timers ---
-  useEffect(() => {
-    if (!isSolutionMode && !isPaused && timeRemaining > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            handleSubmit();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isPaused, timeRemaining, isSolutionMode]);
-
-  useEffect(() => {
-    if (!isSolutionMode && !isPaused) {
-      questionTimerRef.current = setInterval(() => {
-        setQuestionTime(prev => prev + 1);
-      }, 1000);
-    }
-    return () => {
-      if (questionTimerRef.current) clearInterval(questionTimerRef.current);
-    };
-  }, [isPaused, currentQuestionIndex, isSolutionMode]);
-
-  // Update time spent when switching questions
-  useEffect(() => {
-    if (!isSolutionMode) {
-        setQuestionStats(prev => ({
-            ...prev,
-            [currentQuestionIndex]: {
-                ...prev[currentQuestionIndex],
-                timeSpent: (prev[currentQuestionIndex]?.timeSpent || 0) + questionTime
-            }
-        }));
-        setQuestionTime(0);
-        
-        // Mark as visited
-        setQuestionStats(prev => ({
-            ...prev,
-            [currentQuestionIndex]: { ...prev[currentQuestionIndex], isVisited: true }
-        }));
-    }
-  }, [currentQuestionIndex]);
-
-  // --- Handlers ---
-  const handlePause = () => setIsPaused(true);
-
-  const handleResume = () => setIsPaused(false);
-
-  const handleHome = () => {
-      // Save progress to localStorage
-      const progress: QuizProgress = {
-          entryId: entry.id,
-          questionStats,
-          timeRemaining,
-          currentQuestionIndex,
-          timestamp: Date.now()
-      };
-      localStorage.setItem(`quiz_progress_${entry.id}`, JSON.stringify(progress));
-      onExit();
-  };
-
-  const handleOptionSelect = (optionKey: string) => {
-    if (isSolutionMode) return;
-    setQuestionStats(prev => ({
-      ...prev,
-      [currentQuestionIndex]: { ...prev[currentQuestionIndex], selectedOption: optionKey }
-    }));
-  };
-
-  const handleMarkForReview = () => {
-    if (isSolutionMode) return;
-    setQuestionStats(prev => ({
-      ...prev,
-      [currentQuestionIndex]: { 
-        ...prev[currentQuestionIndex], 
-        isMarkedForReview: !prev[currentQuestionIndex].isMarkedForReview 
-      }
-    }));
-  };
-
-  const handleClear = () => {
-    setQuestionStats(prev => ({
-      ...prev,
-      [currentQuestionIndex]: { ...prev[currentQuestionIndex], selectedOption: null }
-    }));
-  };
-
-  const handleNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    } else {
-        // Last question logic
-        setShowSubmitDialog(true);
-    }
-  };
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isReviewMode, setIsReviewMode] = useState(initialMode === 'solution');
   
-  const handlePrev = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+  const questions = entry.questions?.questions || [];
+  const currentQuestion = questions[currentQuestionIndex];
+
+  // Timer Effect
+  useEffect(() => {
+    if (isReviewMode || isPaused) return;
+    const timer = setInterval(() => {
+        setTimeElapsed(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isReviewMode, isPaused]);
+
+  // Initial Review Mode Setup
+  useEffect(() => {
+    if (initialMode === 'solution') {
+        setIsReviewMode(true);
+        if (existingResult) {
+            setTimeElapsed(existingResult.timeTakenSeconds);
+            const answers: Record<number, string> = {};
+            Object.entries(existingResult.questionStats).forEach(([key, stat]) => {
+                if (stat.selectedOption) answers[Number(key)] = stat.selectedOption;
+            });
+            setUserAnswers(answers);
+        }
     }
+  }, [initialMode, existingResult]);
+
+  // Save Progress Effect (Debounced)
+  useEffect(() => {
+      if (isReviewMode) return;
+      const timeout = setTimeout(() => {
+        const stats: Record<number, QuestionStatus> = {};
+        questions.forEach((_, idx) => {
+            stats[idx] = {
+                selectedOption: userAnswers[idx] || null,
+                isMarkedForReview: false,
+                isVisited: idx === currentQuestionIndex,
+                timeSpent: 0
+            };
+        });
+        
+        const progress: QuizProgress = {
+            entryId: entry.id,
+            questionStats: stats,
+            timeRemaining: 0, // Not using countdown
+            currentQuestionIndex,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(`quiz_progress_${entry.id}`, JSON.stringify(progress));
+      }, 1000);
+      return () => clearTimeout(timeout);
+  }, [userAnswers, currentQuestionIndex, isReviewMode, entry.id, questions]);
+
+  const handleOptionSelect = (optionLabel: string) => {
+    if (isReviewMode) return;
+    setUserAnswers(prev => ({ ...prev, [currentQuestionIndex]: optionLabel }));
   };
 
   const handleSubmit = () => {
-    // Hide dialog immediately to prevent bug where it shows on result screen
-    setShowSubmitDialog(false);
-
-    // Calculate Score
     let score = 0;
     questions.forEach((q, idx) => {
-        const selected = questionStats[idx]?.selectedOption;
-        if (selected && selected.toLowerCase() === q.answer.toLowerCase()) {
-            score += 1;
-        } else if (selected) {
-            score -= 0.25;
+        if (userAnswers[idx]?.toLowerCase() === q.answer?.toLowerCase()) {
+            score++;
         }
+    });
+
+    const stats: Record<number, QuestionStatus> = {};
+    questions.forEach((_, idx) => {
+        stats[idx] = {
+            selectedOption: userAnswers[idx] || null,
+            isMarkedForReview: false,
+            isVisited: true,
+            timeSpent: 0
+        };
     });
 
     const result: QuizResult = {
         score,
         total: questions.length,
-        questionStats,
+        questionStats: stats,
         timestamp: Date.now(),
-        timeTakenSeconds: (questions.length * 60) - timeRemaining
+        timeTakenSeconds: timeElapsed
     };
+
     onComplete(result);
+    // Switch to local review mode immediately to show result card
+    setIsReviewMode(true);
   };
 
-  // --- Swipe Handlers ---
-  const minSwipeDistance = 50;
-  const onTouchStart = (e: React.TouchEvent) => { touchEnd.current = null; touchStart.current = e.targetTouches[0].clientX; };
-  const onTouchMove = (e: React.TouchEvent) => { touchEnd.current = e.targetTouches[0].clientX; };
-  const onTouchEnd = () => {
-    if (!touchStart.current || !touchEnd.current) return;
-    const distance = touchStart.current - touchEnd.current;
-    if (distance > minSwipeDistance && currentQuestionIndex < questions.length - 1) handleNext();
-    if (distance < -minSwipeDistance && currentQuestionIndex > 0) handlePrev();
-  };
+  const renderQuestion = () => {
+    if (!currentQuestion) return <div>No question data.</div>;
 
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h > 0 ? h.toString().padStart(2, '0') + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+    const selectedOption = userAnswers[currentQuestionIndex];
+    const correctAnswer = currentQuestion.answer;
 
-  // Helper to render formatted text (bolding)
-  const renderFormattedText = (text: string) => {
-    if (!text) return null;
-    const parts = text.split(/(\*\*.*?\*\*)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={index} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
-      }
-      return <span key={index}>{part}</span>;
-    });
-  };
-
-  // Empty State
-  if (questions.length === 0) return (
-      <div className="fixed inset-0 z-[1200] bg-white flex items-center justify-center">
-          <div className="text-center">
-              <p className="text-gray-500 mb-4">No questions available.</p>
-              <Button onClick={onExit}>Exit</Button>
-          </div>
-      </div>
-  );
-
-  // --- Render Logic ---
-
-  // 1. Result Summary View
-  if (isSolutionMode && !showSolutionDetails && existingResult) {
-      return (
-        <div className="fixed inset-0 z-[1200] bg-white overflow-hidden flex flex-col">
-            {/* Simple Header for Result */}
-            <header className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-white z-10 sticky top-0">
-                <div className="flex items-center gap-2">
-                    <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
-                        <Award className="w-5 h-5" />
-                    </div>
-                    <h1 className="text-lg font-extrabold text-gray-900">Performance</h1>
-                </div>
-                <button 
-                  onClick={onExit} 
-                  className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-                >
-                    <X className="w-6 h-6" />
-                </button>
-            </header>
-            <main className="flex-1 overflow-y-auto bg-white flex items-center justify-center">
-                <ScoreCard result={existingResult} onViewSolutions={() => setShowSolutionDetails(true)} />
-            </main>
-        </div>
-      );
-  }
-
-  // 2. Active Test / Solution Detail View
-  const currentQ = questions[currentQuestionIndex];
-  const currentStat = questionStats[currentQuestionIndex];
-  const questionText = lang === 'en' ? currentQ.question_en : currentQ.question_hi;
-  const solutionTextEn = currentQ.explanation_en || currentQ.solution_en || currentQ.extra_details;
-  const solutionTextHi = currentQ.explanation_hi || currentQ.solution_hi;
-
-  // Determine status for Solution Mode Header
-  let solutionStatusBadge = null;
-  if (isSolutionMode) {
-      const isCorrect = currentStat?.selectedOption?.toLowerCase() === currentQ.answer.toLowerCase();
-      const isSkipped = !currentStat?.selectedOption;
-      
-      if (isCorrect) {
-          solutionStatusBadge = (
-            <div className="flex items-center text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100 shadow-sm">
-                <CheckCircle className="w-4 h-4 mr-1.5" />
-                <span className="text-xs font-bold uppercase tracking-wide">Correct</span>
-            </div>
-          );
-      } else if (isSkipped) {
-          solutionStatusBadge = (
-            <div className="flex items-center text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm">
-                <AlertCircle className="w-4 h-4 mr-1.5" />
-                <span className="text-xs font-bold uppercase tracking-wide">Skipped</span>
-            </div>
-          );
-      } else {
-          solutionStatusBadge = (
-            <div className="flex items-center text-red-700 bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 shadow-sm">
-                <XCircle className="w-4 h-4 mr-1.5" />
-                <span className="text-xs font-bold uppercase tracking-wide">Wrong</span>
-            </div>
-          );
-      }
-  }
-
-  return (
-    <div 
-      onContextMenu={(e) => e.preventDefault()}
-      className="fixed inset-0 z-[1200] w-full h-[100dvh] flex flex-col bg-white select-none overflow-hidden animate-in slide-in-from-bottom-5 duration-300"
-    >
-      {/* HEADER */}
-      <header className="shrink-0 bg-white shadow-sm border-b border-gray-200 z-20 relative">
-        <div className="p-2 md:p-3 border-b border-gray-100">
-          <div className="flex justify-between items-center max-w-6xl mx-auto w-full">
-            <div className="flex items-center gap-3">
-               {/* Pause / Back Button */}
-               {isSolutionMode ? (
-                   <button 
-                     onClick={() => setShowSolutionDetails(false)}
-                     className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-50 text-gray-600 border border-transparent hover:border-gray-200 transition-all"
-                   >
-                     <ArrowLeft className="w-5 h-5" />
-                   </button>
-               ) : (
-                   <button 
-                    onClick={handlePause}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-blue-50 hover:text-blue-600 border border-gray-200 hover:border-blue-200 transition-all"
-                   >
-                     <Pause className="w-5 h-5 fill-current" />
-                   </button>
-               )}
-
-              <div className="flex flex-col">
-                {isSolutionMode ? (
-                  <p className="text-base font-bold text-gray-900">Detailed Solutions</p>
-                ) : (
-                  <p className="text-base font-bold text-gray-800 tabular-nums flex items-center gap-2">
-                    {formatTime(timeRemaining)}
-                    {!isPaused && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-               <button 
-                 onClick={() => setLang(prev => prev === 'en' ? 'hi' : 'en')}
-                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-bold text-gray-700 hover:bg-white hover:shadow-sm transition-all"
-               >
-                 <Languages className="w-3.5 h-3.5" />
-                 {lang === 'en' ? 'EN' : 'HI'}
-               </button>
-
-              <button 
-                onClick={() => setShowMenu(true)}
-                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-50 text-gray-600 border border-transparent hover:border-gray-200 transition-all"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div className="px-3 py-1.5 bg-gray-50/50 backdrop-blur-sm">
-          <div className="flex justify-between items-center text-sm max-w-6xl mx-auto w-full">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="bg-gray-900 text-white rounded-lg min-w-[1.5rem] h-6 px-1.5 flex items-center justify-center font-bold text-xs shadow-sm">
-                {currentQuestionIndex + 1}
-              </div>
-              
-              {!isSolutionMode && (
-                <div className="flex items-center gap-1 text-gray-500 bg-white px-2 py-0.5 rounded-md border border-gray-200 shadow-sm">
-                  <Timer className="w-3.5 h-3.5" />
-                  <span className="tabular-nums text-xs font-bold">{formatTime(questionTime)}</span>
-                </div>
-              )}
-              
-              <div className="flex gap-2">
-                <Badge className="bg-green-50 text-green-700 border-green-200">+1.0</Badge>
-                <Badge className="bg-red-50 text-red-700 border-red-200">-0.25</Badge>
-              </div>
-            </div>
-            
-            {/* Right Side Controls / Status */}
-            <div className="flex items-center gap-3">
-                {!isSolutionMode ? (
-                    <button onClick={handleMarkForReview} className={`transition-all p-1.5 rounded-lg ${currentStat?.isMarkedForReview ? "bg-purple-50 text-purple-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}>
-                        <Star className={`w-5 h-5 ${currentStat?.isMarkedForReview ? "fill-current" : ""}`} />
-                    </button>
-                ) : (
-                    <div className="animate-in fade-in duration-300">
-                        {solutionStatusBadge}
-                    </div>
-                )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main 
-        className={`flex-1 overflow-y-auto p-4 bg-gray-50 w-full transition-all duration-300 ${isPaused ? 'blur-sm pointer-events-none' : ''}`}
-        onTouchStart={!isSolutionMode ? onTouchStart : undefined}
-        onTouchMove={!isSolutionMode ? onTouchMove : undefined}
-        onTouchEnd={!isSolutionMode ? onTouchEnd : undefined}
-      >
-        <div className="max-w-6xl mx-auto pb-24">
+    return (
+        <div className="max-w-3xl mx-auto w-full pb-24">
             {/* Question Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                {/* Reduced font size for questions */}
-                <p className={`text-base md:text-lg font-medium text-gray-900 leading-relaxed ${lang === 'hi' ? 'font-serif' : ''}`}>
-                    {questionText}
-                </p>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                <div className="flex items-start justify-between mb-4">
+                     <Badge className="bg-gray-100 text-gray-600">
+                        Q{currentQuestionIndex + 1} of {questions.length}
+                     </Badge>
+                     {isReviewMode && (
+                         <Badge className={selectedOption?.toLowerCase() === correctAnswer?.toLowerCase() ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-red-50 text-red-700 ring-red-200"}>
+                            {selectedOption ? (selectedOption.toLowerCase() === correctAnswer.toLowerCase() ? "Correct" : "Incorrect") : "Skipped"}
+                         </Badge>
+                     )}
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 leading-relaxed">
+                    {currentQuestion.question_en}
+                </h3>
+                {currentQuestion.question_hi && (
+                    <p className="text-base sm:text-lg text-gray-600 font-serif leading-relaxed">
+                        {currentQuestion.question_hi}
+                    </p>
+                )}
             </div>
-            
-            {/* Options List */}
-            <div className="space-y-3 pb-6" key={currentQuestionIndex}>
-            {currentQ.options.map((option) => {
-                const key = option.label;
-                const uniqueKey = `${currentQuestionIndex}-${key}`; 
-                const optionText = lang === 'en' ? option.text_en : option.text_hi;
-                
-                const isSelected = currentStat?.selectedOption === key;
-                const isCorrectAnswer = currentQ.answer.toLowerCase() === key.toLowerCase();
-                
-                let containerClass = "border-gray-200 hover:border-gray-300 bg-white text-gray-700";
-                let iconClass = "bg-gray-100 text-gray-500 border-gray-200";
 
-                if (isSolutionMode) {
-                    if (isCorrectAnswer) {
-                        containerClass = "border-green-500 bg-green-50 ring-1 ring-green-500 text-green-900";
-                        iconClass = "bg-green-500 text-white border-green-500";
-                    } else if (isSelected && !isCorrectAnswer) {
-                        containerClass = "border-red-500 bg-red-50 text-red-900";
-                        iconClass = "bg-red-500 text-white border-red-500";
-                    } else if (!isSelected && !isCorrectAnswer) {
-                        containerClass = "opacity-60";
+            {/* Options */}
+            <div className="space-y-3">
+                {currentQuestion.options.map((opt) => {
+                    const isSelected = selectedOption === opt.label;
+                    const isAnswer = isReviewMode && opt.label.toLowerCase() === correctAnswer.toLowerCase();
+                    const isWrongSelection = isReviewMode && isSelected && !isAnswer;
+                    
+                    let cardClass = "border-transparent bg-white hover:bg-gray-50 text-gray-700 hover:border-gray-200";
+                    let indicatorClass = "bg-gray-100 border-gray-200 text-gray-500";
+                    
+                    if (!isReviewMode) {
+                        if (isSelected) {
+                            cardClass = "border-blue-500 bg-blue-50 text-blue-800 shadow-sm ring-1 ring-blue-500";
+                            indicatorClass = "bg-blue-500 border-blue-500 text-white";
+                        }
+                    } else {
+                        if (isAnswer) {
+                            cardClass = "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-500";
+                            indicatorClass = "bg-emerald-500 border-emerald-500 text-white";
+                        } else if (isWrongSelection) {
+                            cardClass = "border-red-500 bg-red-50 text-red-800 shadow-sm ring-1 ring-red-500";
+                            indicatorClass = "bg-red-500 border-red-500 text-white";
+                        } else if (isSelected) {
+                             // Selected but not wrong/right (should cover wrong case but good for fallback)
+                        } else {
+                            cardClass = "border-gray-100 bg-white opacity-60";
+                        }
                     }
-                } else if (isSelected) {
-                    containerClass = "border-blue-600 bg-blue-50 shadow-sm ring-1 ring-blue-600 text-blue-900";
-                    iconClass = "bg-blue-600 text-white border-blue-600";
-                }
 
-                return (
-                <button 
-                    key={uniqueKey} 
-                    onClick={() => handleOptionSelect(key)} 
-                    disabled={isSolutionMode || isPaused}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-start gap-4 shadow-sm active:scale-[0.99] ${containerClass}`}
-                >
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 border transition-colors uppercase ${iconClass}`}>
-                        {key}
-                    </span>
-                    {/* Reduced font size for options */}
-                    <div className={`flex-1 pt-1 font-medium ${lang === 'hi' ? 'font-serif' : ''}`}>
-                        {optionText}
-                    </div>
-                    {isSolutionMode && isCorrectAnswer && <CheckCircle className="text-green-600 w-6 h-6 shrink-0" />}
-                    {isSolutionMode && isSelected && !isCorrectAnswer && <XCircle className="text-red-600 w-6 h-6 shrink-0" />}
-                </button>
-                );
-            })}
-            </div>
-            
-            {/* Solution Box */}
-            {isSolutionMode && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="p-6 rounded-2xl bg-white border border-blue-100 shadow-lg shadow-blue-50/50">
-                        <p className="text-xs font-bold text-blue-600 uppercase mb-3 tracking-wider flex items-center">
-                            <div className="bg-blue-100 p-1 rounded mr-2">
-                                <CheckCircle className="w-3.5 h-3.5" />
+                    return (
+                        <button
+                            key={opt.label}
+                            onClick={() => handleOptionSelect(opt.label)}
+                            disabled={isReviewMode}
+                            className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center justify-between group ${cardClass}`}
+                        >
+                            <div className="flex items-center gap-4">
+                                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 border transition-colors uppercase ${indicatorClass}`}>
+                                    {opt.label}
+                                </span>
+                                <div>
+                                    <div className="font-medium text-lg">{opt.text_en}</div>
+                                    {opt.text_hi && <div className="font-serif text-sm opacity-80 mt-0.5">{opt.text_hi}</div>}
+                                </div>
                             </div>
-                            Explanation
-                        </p>
-                        <div className="text-base text-gray-800 leading-relaxed whitespace-pre-line space-y-2">
-                           {solutionTextEn && <p>{renderFormattedText(solutionTextEn)}</p>}
-                           {solutionTextHi && <p className="font-serif text-gray-600">{renderFormattedText(solutionTextHi)}</p>}
-                        </div>
+                            {isReviewMode && isAnswer && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+                            {isReviewMode && isWrongSelection && <XCircle className="w-5 h-5 text-red-600" />}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Explanation Section */}
+            {isReviewMode && (currentQuestion.explanation_en || currentQuestion.explanation_hi) && (
+                <div className="mt-6 p-6 bg-blue-50 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-center gap-2 mb-3 text-blue-800 font-bold uppercase text-xs tracking-wider">
+                        <HelpCircle className="w-4 h-4" /> Explanation
+                    </div>
+                    <div className="prose prose-sm prose-blue max-w-none">
+                        {currentQuestion.explanation_en && <p className="text-gray-800 leading-relaxed">{currentQuestion.explanation_en}</p>}
+                        {currentQuestion.explanation_hi && <p className="text-gray-600 font-serif mt-2">{currentQuestion.explanation_hi}</p>}
                     </div>
                 </div>
             )}
         </div>
+    );
+  };
+
+  // View Score Mode
+  const [viewingScore, setViewingScore] = useState(mode === 'solution' && !!existingResult);
+  
+  if (viewingScore && existingResult) {
+      return (
+        <div className="fixed inset-0 z-[1200] bg-white flex flex-col">
+            <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shrink-0">
+                <h2 className="font-bold text-lg">Results</h2>
+                <button onClick={onExit} className="p-2 rounded-full hover:bg-gray-100">
+                    <X className="w-6 h-6 text-gray-500" />
+                </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+                <ScoreCard result={existingResult} onViewSolutions={() => setViewingScore(false)} />
+            </div>
+        </div>
+      );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1200] bg-gray-50 flex flex-col animate-in slide-in-from-bottom-5 duration-300 font-sans">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0 sticky top-0 z-20">
+        <div className="flex items-center gap-3">
+            <button onClick={() => setShowExitConfirm(true)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-500">
+                <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col">
+                <h1 className="text-sm font-bold text-gray-900 line-clamp-1 max-w-[150px] sm:max-w-md">
+                    {entry.questions?.title || "Quiz"}
+                </h1>
+                {!isReviewMode && (
+                    <div className="flex items-center text-xs font-mono text-gray-500">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {formatTimeTaken(timeElapsed)}
+                    </div>
+                )}
+            </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+            {!isReviewMode && (
+                <Button 
+                    variant="default" 
+                    onClick={handleSubmit}
+                    className="h-9 px-3 text-xs"
+                >
+                    Submit
+                </Button>
+            )}
+            <button 
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 border border-gray-200"
+            >
+                <List className="w-5 h-5" />
+            </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 relative">
+          {renderQuestion()}
       </main>
 
-      {/* FOOTER */}
-      <footer className={`shrink-0 p-3 bg-white border-t border-gray-200 z-20 transition-all duration-300 ${isPaused ? 'blur-sm pointer-events-none' : ''}`}>
-        <div className={`grid ${isSolutionMode ? 'grid-cols-2' : 'grid-cols-3'} gap-3 max-w-6xl mx-auto`}>
-          {isSolutionMode ? (
-            <>
-              <Button variant="outline" onClick={handlePrev} disabled={currentQuestionIndex === 0}>
-                <ArrowLeft className="mr-2 w-4 h-4" /> Previous
-              </Button>
-              <Button onClick={handleNext} disabled={currentQuestionIndex === questions.length - 1}>
-                Next <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" onClick={handlePrev} disabled={currentQuestionIndex === 0}>
-                <ArrowLeft className="mr-2 w-4 h-4" /> Prev
-              </Button>
-              <Button variant="ghost" onClick={handleClear} className="text-gray-500 hover:bg-gray-100">
-                Clear
-              </Button>
-              <Button onClick={handleNext}>
-                {currentQuestionIndex === questions.length - 1 ? "Submit" : "Save & Next"}
-                <ChevronRight className="ml-2 w-4 h-4" />
-              </Button>
-            </>
-          )}
+      {/* Footer Navigation */}
+      <footer className="bg-white border-t border-gray-200 p-4 sticky bottom-0 z-20">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+            <Button 
+                variant="outline" 
+                onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+                disabled={currentQuestionIndex === 0}
+                className="flex-1"
+            >
+                <ArrowLeft className="w-4 h-4 mr-2" /> Previous
+            </Button>
+            
+            <span className="text-xs font-bold text-gray-400 hidden sm:block">
+                {currentQuestionIndex + 1} / {questions.length}
+            </span>
+
+            <Button 
+                variant="secondary"
+                onClick={() => {
+                    if (currentQuestionIndex < questions.length - 1) {
+                        setCurrentQuestionIndex(prev => prev + 1);
+                    } else if (!isReviewMode) {
+                        handleSubmit();
+                    }
+                }}
+                className="flex-1"
+            >
+                {currentQuestionIndex === questions.length - 1 ? (isReviewMode ? "Finish" : "Submit") : "Next"} 
+                {currentQuestionIndex < questions.length - 1 && <ArrowRight className="w-4 h-4 ml-2" />}
+            </Button>
         </div>
       </footer>
 
-      {/* PAUSE OVERLAY */}
-      {isPaused && !isSolutionMode && (
-        <div className="absolute inset-0 z-[1250] bg-white/80 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300 p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl border border-gray-100 max-w-sm w-full relative overflow-hidden text-center transform transition-all scale-100">
-               
-               <div className="mx-auto w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                 <Pause className="w-10 h-10 text-amber-500 fill-current" />
-               </div>
-               
-               <h2 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">Test Paused</h2>
-               <p className="text-gray-500 mb-8 font-medium">Take a break! Your progress is safe.</p>
-               
-               <div className="space-y-3">
-                   <Button onClick={handleResume} className="w-full h-14 text-base shadow-blue-200">
-                     <Play className="w-5 h-5 mr-2 fill-current" /> Resume Test
-                   </Button>
-                   <Button variant="outline" onClick={handleHome} className="w-full h-14 text-base border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-                     <Home className="w-5 h-5 mr-2" /> Save & Exit
-                   </Button>
-               </div>
-          </div>
-        </div>
-      )}
-
-      {/* PALETTE MENU */}
-      {showMenu && (
-        <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowMenu(false)}></div>
-          <div className="relative w-[85%] max-w-xs bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center shrink-0 bg-gray-50/50">
-              <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-                  <List className="w-5 h-5 text-gray-500" /> Question Palette
-              </h2>
-              <button onClick={() => setShowMenu(false)} className="p-2 rounded-full hover:bg-gray-200/50 transition-colors">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 bg-white">
-              <div className="grid grid-cols-5 gap-3">
-                {questions.map((_, idx) => {
-                  const stats = questionStats[idx];
-                  let stateClass = "border-gray-200 text-gray-600 bg-white hover:border-gray-300"; 
+      {/* Sidebar (Question Palette) */}
+      {sidebarOpen && (
+          <div className="fixed inset-0 z-[1300] bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}>
+              <div 
+                className="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-2xl p-6 overflow-y-auto animate-in slide-in-from-right duration-200"
+                onClick={e => e.stopPropagation()}
+              >
+                  <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-lg font-bold">Questions</h2>
+                      <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
                   
-                  if (isSolutionMode) {
-                     const isCorrect = stats?.selectedOption?.toLowerCase() === questions[idx].answer.toLowerCase();
-                     const isSkipped = !stats?.selectedOption;
-                     
-                     if (isCorrect) stateClass = "bg-green-500 text-white border-green-500 shadow-sm";
-                     else if (isSkipped) stateClass = "bg-gray-100 text-gray-400 border-gray-200";
-                     else stateClass = "bg-red-500 text-white border-red-500 shadow-sm";
-                  } else {
-                     if (stats?.isMarkedForReview) stateClass = "bg-purple-500 text-white border-purple-500 shadow-sm";
-                     else if (stats?.selectedOption) stateClass = "bg-blue-600 text-white border-blue-600 shadow-sm";
-                     else if (stats?.isVisited) stateClass = "border-blue-400 text-blue-600 bg-blue-50 border-dashed";
-                  }
+                  <div className="grid grid-cols-5 gap-3">
+                      {questions.map((_, idx) => {
+                          const isAnswered = !!userAnswers[idx];
+                          const isCurrent = idx === currentQuestionIndex;
+                          const isCorrect = isReviewMode && userAnswers[idx]?.toLowerCase() === questions[idx].answer.toLowerCase();
+                          
+                          let bgClass = "bg-gray-100 text-gray-600 hover:bg-gray-200";
+                          if (isCurrent) bgClass = "ring-2 ring-blue-500 ring-offset-2 bg-white text-blue-600 border border-blue-200";
+                          else if (isReviewMode) {
+                             if (isCorrect) bgClass = "bg-emerald-100 text-emerald-700 border border-emerald-200";
+                             else if (isAnswered) bgClass = "bg-red-100 text-red-700 border border-red-200";
+                             else bgClass = "bg-gray-100 text-gray-400";
+                          }
+                          else if (isAnswered) bgClass = "bg-blue-600 text-white shadow-sm";
+                          
+                          return (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                    setCurrentQuestionIndex(idx);
+                                    setSidebarOpen(false);
+                                }}
+                                className={`aspect-square rounded-lg flex items-center justify-center text-sm font-bold transition-all ${bgClass}`}
+                              >
+                                  {idx + 1}
+                              </button>
+                          );
+                      })}
+                  </div>
                   
-                  if (idx === currentQuestionIndex) {
-                     stateClass += " ring-2 ring-offset-2 ring-blue-500 z-10 scale-105";
-                  }
-
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => { setCurrentQuestionIndex(idx); setShowMenu(false); setQuestionTime(0); }}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border transition-all active:scale-95 ${stateClass}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
+                  <div className="mt-8 border-t pt-6">
+                      <div className="grid grid-cols-2 gap-3 text-xs font-medium text-gray-500">
+                          <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-blue-600 mr-2"></div> Answered</div>
+                          <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-gray-100 mr-2 border border-gray-200"></div> Unanswered</div>
+                          {isReviewMode && (
+                              <>
+                                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-300 mr-2"></div> Correct</div>
+                                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-100 border border-red-300 mr-2"></div> Incorrect</div>
+                              </>
+                          )}
+                      </div>
+                  </div>
               </div>
-            </div>
-            
-            <div className="p-5 bg-gray-50 border-t border-gray-200 text-xs space-y-3 text-gray-500 shrink-0">
-               <div className="grid grid-cols-2 gap-3 mb-2">
-                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-600"></div> Answered</div>
-                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div> Review</div>
-                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-white border-2 border-dashed border-blue-400"></div> Visited</div>
-                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-white border border-gray-300"></div> Not Visited</div>
-               </div>
-               
-               {/* Submit Button in Palette */}
-               {!isSolutionMode && (
-                  <Button 
-                    onClick={() => { setShowMenu(false); setShowSubmitDialog(true); }}
-                    className="w-full bg-gray-900 hover:bg-black text-white shadow-lg"
-                  >
-                    Submit Test
-                  </Button>
-               )}
-            </div>
           </div>
-        </div>
       )}
 
-      {/* SUBMIT DIALOG */}
-      {showSubmitDialog && (
-        <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowSubmitDialog(false)}></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 overflow-hidden">
-            
-            <div className="flex flex-col items-center text-center mb-6">
-                 <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                    <HelpCircle className="w-8 h-8" />
-                 </div>
-                 <h3 className="text-2xl font-black text-gray-900 mb-2">Submit Assessment?</h3>
-                 <p className="text-gray-500 text-sm font-medium">
-                   You are about to end this test. This action cannot be undone.
-                 </p>
-            </div>
-            
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-8">
-                 <div className="grid grid-cols-3 gap-2 text-center divide-x divide-gray-200">
-                     <div className="flex flex-col">
-                        <span className="text-2xl font-black text-blue-600">
-                            {Object.values(questionStats).filter((s) => (s as QuestionStatus).selectedOption).length}
-                        </span>
-                        <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Answered</span>
-                     </div>
-                     <div className="flex flex-col">
-                        <span className="text-2xl font-black text-purple-600">
-                            {Object.values(questionStats).filter((s) => (s as QuestionStatus).isMarkedForReview).length}
-                        </span>
-                        <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Review</span>
-                     </div>
-                     <div className="flex flex-col">
-                        <span className="text-2xl font-black text-gray-400">
-                            {Object.values(questionStats).filter((s) => !(s as QuestionStatus).selectedOption).length}
-                        </span>
-                        <span className="text-[10px] uppercase font-bold text-gray-400 mt-1">Skipped</span>
-                     </div>
-                 </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button variant="ghost" onClick={() => setShowSubmitDialog(false)} className="flex-1 h-12 text-gray-600 hover:bg-gray-100">Cancel</Button>
-              <Button onClick={handleSubmit} className="flex-1 h-12 shadow-blue-200">Confirm Submit</Button>
-            </div>
-          </div>
+      {/* Exit Confirmation */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[1400] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  {isReviewMode ? "Exit Solutions?" : "Quit Quiz?"}
+              </h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                  {isReviewMode 
+                    ? "You can come back to review these solutions later." 
+                    : "Your progress will be saved, but you can't resume the timer exactly where you left off."}
+              </p>
+              <div className="flex gap-3">
+                  <Button variant="outline" onClick={() => setShowExitConfirm(false)} className="flex-1">
+                      Cancel
+                  </Button>
+                  <Button variant="default" onClick={onExit} className="flex-1 bg-red-600 hover:bg-red-700 shadow-red-200">
+                      {isReviewMode ? "Exit" : "Quit"}
+                  </Button>
+              </div>
+           </div>
         </div>
       )}
     </div>

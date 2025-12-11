@@ -623,7 +623,6 @@ const App: React.FC = () => {
                                         </div>
                                         <div className="text-left">
                                             <span className={`block font-bold text-base ${isExpanded ? 'text-blue-900' : 'text-gray-800'}`}>{month}</span>
-                                            <span className="text-xs text-gray-500 font-medium">{items.length} updates</span>
                                         </div>
                                     </div>
                                     {isExpanded ? <ChevronUp className="w-5 h-5 text-blue-600" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
