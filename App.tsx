@@ -140,6 +140,28 @@ const App: React.FC = () => {
     }
   }, [activeQuiz]);
 
+  // Handle Browser Back Button for Modals
+  useEffect(() => {
+    const isModalOpen = !!activeQuiz || !!selectedPost;
+
+    if (isModalOpen) {
+        // Push state when opening modal to allow back button to close it
+        window.history.pushState({ modalOpen: true }, '', window.location.href);
+
+        const handlePopState = () => {
+            // Close modals on back button
+            setActiveQuiz(null);
+            setSelectedPost(null);
+        };
+
+        window.addEventListener('popstate', handlePopState);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }
+  }, [!!activeQuiz, !!selectedPost]);
+
   // Fetch Current Affairs when active
   useEffect(() => {
     if (activeCategory === 'current-affairs') {
@@ -548,7 +570,7 @@ const App: React.FC = () => {
                                                                 <div className="px-3 py-1.5 bg-gray-100 text-gray-400 text-xs font-bold rounded-lg border border-gray-200 flex items-center">
                                                                     <Lock className="w-3 h-3 mr-1" /> Locked
                                                                 </div>
-                                                            ) : result ? (
+                                                            ) : (result && !isResumable) ? (
                                                                 <>
                                                                     <button 
                                                                         onClick={() => setActiveQuiz({ entry: getVirtualWeekEntry(week, month), mode: 'solution' })}
@@ -632,7 +654,7 @@ const App: React.FC = () => {
                                                     </div>
                                                     
                                                     <div className="shrink-0 flex items-center gap-2">
-                                                        {result ? (
+                                                        {(result && !isResumable) ? (
                                                             <>
                                                                 <button 
                                                                     onClick={() => setActiveQuiz({ entry, mode: 'solution' })}
@@ -740,7 +762,7 @@ const App: React.FC = () => {
                                     </div>
                                     
                                     <div className="flex items-center gap-2 mt-1">
-                                         {result ? (
+                                         {(result && !isResumable) ? (
                                             <>
                                                 <button 
                                                     onClick={() => {
