@@ -554,7 +554,7 @@ const App: React.FC = () => {
                                                                         onClick={() => setActiveQuiz({ entry: getVirtualWeekEntry(week, month), mode: 'solution' })}
                                                                         className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
                                                                     >
-                                                                        Sol.
+                                                                        Solution
                                                                     </button>
                                                                     <button 
                                                                         onClick={() => startWeeklyQuiz(week, month)}
@@ -612,8 +612,8 @@ const App: React.FC = () => {
                                         {items.map((entry: CurrentAffairEntry) => {
                                             const result = quizResults[entry.id];
                                             
-                                            // Safely access title and handle null cases
-                                            const displayTitle = entry.questions?.title ? cleanTitle(entry.questions.title) : 'Untitled Update';
+                                            // Override title for Daily CA as requested to "Daily Current Affairs"
+                                            const displayTitle = "Daily Current Affairs";
                                             const questionCount = entry.questions?.questions?.length || 0;
                                             const isResumable = savedProgressIds.has(entry.id);
 
@@ -638,7 +638,7 @@ const App: React.FC = () => {
                                                                     onClick={() => setActiveQuiz({ entry, mode: 'solution' })}
                                                                     className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
                                                                 >
-                                                                    Sol.
+                                                                    Solution
                                                                 </button>
                                                                 <button 
                                                                     onClick={() => startQuiz(entry)}
@@ -749,7 +749,7 @@ const App: React.FC = () => {
                                                     }}
                                                     className="flex-1 py-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 flex items-center justify-center"
                                                 >
-                                                    Solutions
+                                                    Solution
                                                 </button>
                                                 <button 
                                                     onClick={() => startVocabQuiz(vocabEntry)}

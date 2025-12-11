@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { 
   ArrowLeft, ArrowRight, Menu, Play, Pause, 
@@ -358,6 +357,36 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
   const solutionTextEn = currentQ.explanation_en || currentQ.solution_en || currentQ.extra_details;
   const solutionTextHi = currentQ.explanation_hi || currentQ.solution_hi;
 
+  // Determine status for Solution Mode Header
+  let solutionStatusBadge = null;
+  if (isSolutionMode) {
+      const isCorrect = currentStat?.selectedOption?.toLowerCase() === currentQ.answer.toLowerCase();
+      const isSkipped = !currentStat?.selectedOption;
+      
+      if (isCorrect) {
+          solutionStatusBadge = (
+            <div className="flex items-center text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-200">
+                <CheckCircle className="w-4 h-4 mr-1.5" />
+                <span className="text-xs font-bold uppercase">Correct</span>
+            </div>
+          );
+      } else if (isSkipped) {
+          solutionStatusBadge = (
+            <div className="flex items-center text-gray-500 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
+                <AlertCircle className="w-4 h-4 mr-1.5" />
+                <span className="text-xs font-bold uppercase">Skipped</span>
+            </div>
+          );
+      } else {
+          solutionStatusBadge = (
+            <div className="flex items-center text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-200">
+                <XCircle className="w-4 h-4 mr-1.5" />
+                <span className="text-xs font-bold uppercase">Wrong</span>
+            </div>
+          );
+      }
+  }
+
   return (
     <div 
       onContextMenu={(e) => e.preventDefault()}
@@ -436,13 +465,18 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
               </div>
             </div>
             
-            {!isSolutionMode && (
-              <div className="flex items-center gap-3">
-                <button onClick={handleMarkForReview} className={`transition-colors ${currentStat?.isMarkedForReview ? "text-purple-600" : "text-gray-400 hover:text-gray-600"}`}>
-                  <Star className={`w-5 h-5 ${currentStat?.isMarkedForReview ? "fill-current" : ""}`} />
-                </button>
-              </div>
-            )}
+            {/* Right Side Controls / Status */}
+            <div className="flex items-center gap-3">
+                {!isSolutionMode ? (
+                    <button onClick={handleMarkForReview} className={`transition-colors ${currentStat?.isMarkedForReview ? "text-purple-600" : "text-gray-400 hover:text-gray-600"}`}>
+                        <Star className={`w-5 h-5 ${currentStat?.isMarkedForReview ? "fill-current" : ""}`} />
+                    </button>
+                ) : (
+                    <div className="animate-in fade-in duration-300">
+                        {solutionStatusBadge}
+                    </div>
+                )}
+            </div>
           </div>
         </div>
       </header>
