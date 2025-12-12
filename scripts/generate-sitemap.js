@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { manualUrls } from './manual_urls.js';
 
 // --- Configuration ---
 const BASE_URL = 'https://www.ssc247.in';
@@ -81,15 +82,11 @@ async function generateSitemap() {
 
     if (error) {
         console.error('Supabase Error fetching posts:', error);
-        return;
+        // We continue even if DB fails, to at least generate the manual URLs
     }
 
-    if (!posts || posts.length === 0) {
-        console.log('No posts found. Using default sitemap.');
-        return;
-    }
-
-    console.log(`Found ${posts.length} posts. Building XML...`);
+    const postCount = posts ? posts.length : 0;
+    console.log(`Found ${postCount} posts in DB.`);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -99,27 +96,54 @@ async function generateSitemap() {
     <priority>1.0</priority>
 </url>`;
 
-    posts.forEach(post => {
-        try {
-            const { slug, id } = generateSlug(post);
-            // Escape ampersands
-            const url = `${BASE_URL}/?post=${slug}&amp;id=${id}`;
-            
-            let dateObj = new Date(post.upload_date);
-            if (isNaN(dateObj.getTime())) dateObj = new Date();
-            const lastMod = dateObj.toISOString().split('T')[0];
+    // 1. Add DB Posts
+    if (posts) {
+        posts.forEach(post => {
+            try {
+                const { slug, id } = generateSlug(post);
+                // Escape ampersands
+                const url = `${BASE_URL}/?post=${slug}&amp;id=${id}`;
+                
+                let dateObj = new Date(post.upload_date);
+                if (isNaN(dateObj.getTime())) dateObj = new Date();
+                const lastMod = dateObj.toISOString().split('T')[0];
 
-            xml += `
+                xml += `
 <url>
     <loc>${url}</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
 </url>`;
-        } catch (e) {
-            console.warn(`Skipping post ${post.id}`, e);
-        }
-    });
+            } catch (e) {
+                console.warn(`Skipping post ${post.id}`, e);
+            }
+        });
+    }
+
+    // 2. Add Manual URLs
+    if (manualUrls && manualUrls.length > 0) {
+        console.log(`Adding ${manualUrls.length} manual URLs...`);
+        const today = new Date().toISOString().split('T')[0];
+        
+        manualUrls.forEach(url => {
+            if (!url) return;
+            
+            // Ensure & is escaped to &amp; for XML validity, but don't double escape
+            let loc = url.trim();
+            if (loc.includes('&') && !loc.includes('&amp;')) {
+                loc = loc.replace(/&/g, '&amp;');
+            }
+
+            xml += `
+<url>
+    <loc>${loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+</url>`;
+        });
+    }
 
     xml += `\n</urlset>`;
 
