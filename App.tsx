@@ -223,8 +223,10 @@ const App: React.FC = () => {
         }
         
         // Push state so back button works to close modal
-        const newUrl = `${currentPath}?${newParams.toString()}`;
-        if (window.location.search !== `?${newParams.toString()}`) {
+        const queryString = newParams.toString();
+        const newUrl = queryString ? `${currentPath}?${queryString}` : currentPath;
+        
+        if (window.location.search !== (queryString ? `?${queryString}` : '')) {
             window.history.pushState({ modalOpen: true }, '', newUrl);
         }
 
@@ -243,7 +245,8 @@ const App: React.FC = () => {
     } else {
         // Ensure URL is clean if no modal is open (via UI close button)
         const params = new URLSearchParams(window.location.search);
-        if (params.has('id') || params.has('readingId') || params.has('post')) {
+        // Also cleanup if there's a dangling '?' or empty params
+        if (params.has('id') || params.has('readingId') || params.has('post') || window.location.search === '?') {
              window.history.replaceState(null, '', window.location.pathname);
         }
     }
