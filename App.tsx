@@ -123,12 +123,13 @@ const App: React.FC = () => {
     }
     refreshSavedProgress();
 
-    // Check URL for readingId (Deep Linking)
+    // Check URL for readingId (Deep Linking for SEO)
     const params = new URLSearchParams(window.location.search);
     const readingId = params.get('readingId');
     if (readingId) {
-        // Automatically switch to Reading category and try to fetch specific entry
+        // Automatically switch to Reading category
         setActiveCategory('reading-mode');
+        // Fetch specific entry
         fetchEntryById(readingId).then(entry => {
             if (entry) setActiveReadingEntry(entry);
         });
@@ -148,6 +149,7 @@ const App: React.FC = () => {
 
     if (isModalOpen) {
         // Construct the URL based on state
+        // If a reading entry is open, put its ID in the URL
         let newUrl = window.location.pathname;
         if (activeReadingEntry) {
             newUrl += `?readingId=${activeReadingEntry.id}`;
@@ -169,9 +171,10 @@ const App: React.FC = () => {
         };
     } else {
         // Ensure URL is clean if no modal is open (via UI close button)
+        // We use replaceState to avoid creating a new history entry just for cleaning
         const params = new URLSearchParams(window.location.search);
         if (params.has('readingId')) {
-            window.history.replaceState(null, '', window.location.pathname);
+             window.history.replaceState(null, '', window.location.pathname);
         }
     }
   }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry]);
@@ -264,6 +267,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper to fetch a single entry for Deep Linking
   const fetchEntryById = async (id: string): Promise<CurrentAffairEntry | null> => {
       try {
           const { data, error } = await supabase
