@@ -38,7 +38,6 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
                     <h1 className="text-sm font-bold text-gray-900 leading-tight line-clamp-1">
                         {entry.questions.title || "Daily Current Affairs"}
                     </h1>
-                    <span className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Reading Mode</span>
                 </div>
             </div>
 
@@ -53,8 +52,8 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
-        <div className="max-w-3xl mx-auto space-y-4">
+      <main className="flex-1 overflow-y-auto bg-white p-4">
+        <div className="max-w-3xl mx-auto">
             {questions.map((q, idx) => {
                 const questionText = lang === 'en' ? q.question_en : q.question_hi;
                 const explanation = lang === 'en' ? (q.explanation_en || q.extra_details) : q.explanation_hi;
@@ -64,42 +63,39 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
                 const answerText = correctOption ? (lang === 'en' ? correctOption.text_en : correctOption.text_hi) : q.answer;
 
                 return (
-                    <article key={idx} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="p-5">
-                            <div className="flex gap-3 mb-4">
-                                <span className="flex-shrink-0 w-6 h-6 rounded bg-gray-100 text-gray-500 text-xs font-bold flex items-center justify-center mt-0.5">
-                                    {idx + 1}
-                                </span>
-                                <h3 className={`font-bold text-gray-900 text-base sm:text-lg leading-snug ${lang === 'hi' ? 'font-serif' : ''}`}>
-                                    {questionText}
-                                </h3>
-                            </div>
-
-                            <div className="ml-9 mb-4 p-3 bg-emerald-50 rounded-lg border border-emerald-100 text-emerald-900">
-                                <div className="flex items-start gap-2">
-                                    <span className="text-xs font-bold uppercase tracking-wide text-emerald-600 flex-shrink-0 mt-0.5">Answer:</span>
-                                    <p className={`font-medium text-sm sm:text-base ${lang === 'hi' ? 'font-serif' : ''}`}>
-                                        {answerText}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {explanation && (
-                                <div className="ml-9 pt-3 border-t border-gray-100">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Explanation</p>
-                                    <div className={`text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-line font-medium ${lang === 'hi' ? 'font-serif' : 'font-sans'}`}>
-                                        {renderFormattedText(explanation)}
-                                    </div>
-                                </div>
-                            )}
+                    <div key={idx} className="py-6 border-b border-gray-100 last:border-0">
+                        <div className="flex gap-2 mb-3">
+                            <span className="font-bold text-gray-900 shrink-0">{idx + 1}.</span>
+                            <h3 className={`font-bold text-gray-900 leading-snug ${lang === 'hi' ? 'font-serif' : ''}`}>
+                                {questionText}
+                            </h3>
                         </div>
-                    </article>
+
+                        <div className="ml-6 mb-3">
+                            <p className={`text-emerald-700 font-bold text-sm ${lang === 'hi' ? 'font-serif' : ''}`}>
+                                Answer: {answerText}
+                            </p>
+                        </div>
+
+                        {explanation && (
+                            <div className="ml-6">
+                                <div className={`text-sm text-gray-700 leading-relaxed ${lang === 'hi' ? 'font-serif font-bold' : 'font-sans font-medium'}`}>
+                                    {explanation.split('\n').filter(line => line.trim()).map((line, i) => (
+                                        <div key={i} className="mb-2 last:mb-0">
+                                            <span className="font-bold text-gray-500 mr-1">Exp:</span>
+                                            {renderFormattedText(line)}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 );
             })}
             
-            <div className="text-center py-8 text-gray-400">
-                <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">End of Reading</p>
+            <div className="text-center py-10 text-gray-400">
+                <BookOpen className="w-6 h-6 mx-auto mb-2 opacity-20" />
+                <p className="text-xs">End of Reading</p>
             </div>
         </div>
       </main>

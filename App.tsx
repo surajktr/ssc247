@@ -9,18 +9,24 @@ import { supabase } from './lib/supabase';
 import { 
   Loader2, Calendar, PlayCircle, RotateCcw, 
   Lock, ChevronDown, ChevronRight, ChevronUp, FileText, ArrowLeft, 
-  ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Globe, Clock
+  ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Globe, Clock, ChevronLeft
 } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State: UI & Data ---
   const [activeCategory, setActiveCategory] = useState<string>('current-affairs');
   
-  // State: Current Affairs
+  // State: Current Affairs (Quiz Mode)
   const [currentAffairsTab, setCurrentAffairsTab] = useState<'Daily' | 'Weekly'>('Daily');
   const [currentAffairsList, setCurrentAffairsList] = useState<CurrentAffairEntry[]>([]);
   const [loadingCurrentAffairs, setLoadingCurrentAffairs] = useState(false);
   const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
+  
+  // State: Reading Mode Pagination
+  const [readingItems, setReadingItems] = useState<CurrentAffairEntry[]>([]);
+  const [readingPage, setReadingPage] = useState(0);
+  const [loadingReading, setLoadingReading] = useState(false);
+  const READING_PAGE_SIZE = 7;
   
   // State: Saved Progress (for Resume functionality)
   const [savedProgressIds, setSavedProgressIds] = useState<Set<string>>(new Set());
@@ -49,7 +55,7 @@ const App: React.FC = () => {
     },
     {
       id: 'reading-mode',
-      label: 'Read CA',
+      label: 'Recent CA',
       iconType: 'svg',
       iconContent: 'book',
       gradientClass: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
@@ -146,10 +152,17 @@ const App: React.FC = () => {
     }
   }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry]);
 
-  // Fetch Current Affairs
+  // Fetch Current Affairs for Quiz Mode
   useEffect(() => {
       fetchCurrentAffairs();
   }, []);
+
+  // Fetch Reading Mode Data when category changes or page changes
+  useEffect(() => {
+    if (activeCategory === 'reading-mode') {
+        fetchReadingModeData(readingPage);
+    }
+  }, [activeCategory, readingPage]);
 
   // Handle Tab Switch: Default to Current Month Expansion
   useEffect(() => {
@@ -198,6 +211,35 @@ const App: React.FC = () => {
       }
   };
 
+  const fetchReadingModeData = async (page: number) => {
+    setLoadingReading(true);
+    const from = page * READING_PAGE_SIZE;
+    const to = from + READING_PAGE_SIZE - 1;
+
+    try {
+        const { data, error } = await supabase
+            .from('current_affairs')
+            .select('id, upload_date, questions')
+            .order('upload_date', { ascending: false })
+            .range(from, to);
+        
+        if (error) throw error;
+
+        if (data) {
+            const formatted = data.map((item: any) => ({
+                id: item.id,
+                upload_date: item.upload_date,
+                questions: item.questions
+            }));
+            setReadingItems(formatted);
+        }
+    } catch (error) {
+        console.error('Error fetching Reading Mode Data:', error);
+    } finally {
+        setLoadingReading(false);
+    }
+  };
+
   // --- Logic for Grouping Current Affairs ---
   
   const toggleAccordion = (key: string) => {
@@ -210,7 +252,7 @@ const App: React.FC = () => {
     setExpandedAccordions(newSet);
   };
 
-  // --- Aggregated Data Logic ---
+  // --- Aggregated Data Logic (Quiz Mode) ---
   
   const getDailyGrouped = useMemo(() => {
     if (currentAffairsTab === 'Weekly') return {};
@@ -567,31 +609,27 @@ const App: React.FC = () => {
         {activeCategory === 'reading-mode' && (
              <div className="animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4 px-1">
-                    <h2 className="text-lg font-bold text-gray-800">Reading Archive</h2>
+                    <h2 className="text-lg font-bold text-gray-800">Recent Current Affairs</h2>
                 </div>
 
-                {loadingCurrentAffairs ? (
+                {loadingReading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-emerald-600">
                         <Loader2 className="w-8 h-8 animate-spin mb-2" />
                         <span className="text-sm font-medium">Loading reading material...</span>
                     </div>
-                ) : currentAffairsList.length === 0 ? (
+                ) : readingItems.length === 0 ? (
                     <div className="text-center py-10 bg-white rounded-xl border border-gray-200 border-dashed">
                         <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                         <p className="text-gray-500 text-sm">No updates available to read.</p>
                     </div>
                 ) : (
+                    <>
                     <div className="grid grid-cols-1 gap-3">
-                        {/* Simply list the daily current affairs items, excluding weekly/monthly compilations if desirable, 
-                            but keeping them is fine too if they are just collections. 
-                            Filtering for "Weekly" in title might be good if we want only daily.
-                        */}
-                        {currentAffairsList
+                        {readingItems
                             .filter(item => {
                                 const title = item.questions?.title?.toLowerCase() || '';
                                 return !title.includes('weekly') && !title.includes('monthly');
                             })
-                            .slice(0, 15) // Limit to recent 15 for "Reading Mode" feed or just show all
                             .map(entry => {
                             const questionCount = entry.questions?.questions?.length || 0;
                             const displayDate = new Date(entry.upload_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -623,6 +661,26 @@ const App: React.FC = () => {
                             );
                         })}
                     </div>
+                    
+                    {/* Pagination Controls */}
+                    <div className="flex items-center justify-between mt-6 px-2">
+                        <button 
+                            onClick={() => setReadingPage(p => Math.max(0, p - 1))}
+                            disabled={readingPage === 0}
+                            className="flex items-center px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        >
+                            <ChevronLeft className="w-4 h-4 mr-2" /> Previous
+                        </button>
+                        <span className="text-sm font-bold text-gray-500">Page {readingPage + 1}</span>
+                        <button 
+                            onClick={() => setReadingPage(p => p + 1)}
+                            disabled={readingItems.length < READING_PAGE_SIZE}
+                            className="flex items-center px-4 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-emerald-200"
+                        >
+                            Next <ChevronRight className="w-4 h-4 ml-2" />
+                        </button>
+                    </div>
+                    </>
                 )}
              </div>
         )}
