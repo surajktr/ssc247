@@ -15,26 +15,24 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
   useEffect(() => {
     // 1. Update Document Title
     const originalTitle = document.title;
-    // Prefer the specific title, otherwise fallback to date
-    const displayTitle = entry.questions.title || `Current Affairs ${new Date(entry.upload_date).toLocaleDateString()}`;
-    document.title = `${displayTitle} - SSC24x7`;
+    const pageTitle = entry.questions.title 
+        ? `${entry.questions.title} - SSC24x7` 
+        : `Current Affairs ${new Date(entry.upload_date).toLocaleDateString()} - SSC24x7`;
+    document.title = pageTitle;
 
     // 2. Update Meta Description
-    // We try to find an existing meta tag, or create one if it doesn't exist
     let metaDescription = document.querySelector('meta[name="description"]');
     if (!metaDescription) {
         metaDescription = document.createElement('meta');
         metaDescription.setAttribute('name', 'description');
         document.head.appendChild(metaDescription);
     }
-    
-    // Construct a description from the first question to lure searchers
+    // Use the first question as the description snippet for SEO
     const firstQuestion = questions[0]?.question_en || "Daily Current Affairs Questions and Answers";
-    const descContent = `Read detailed Current Affairs: ${firstQuestion} ... and more. Full explanations available.`;
-    metaDescription.setAttribute('content', descContent);
+    metaDescription.setAttribute('content', `Read current affairs: ${firstQuestion} and more on SSC24x7.`);
 
     // 3. Inject JSON-LD Schema (FAQPage)
-    // This is crucial for having your questions appear in Google's "People Also Ask" or Rich Snippets
+    // This tells Google that this page contains specific Questions and Answers
     const schemaScript = document.createElement('script');
     schemaScript.type = 'application/ld+json';
     
@@ -46,7 +44,7 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
             "name": q.question_en,
             "acceptedAnswer": {
                 "@type": "Answer",
-                "text": `Answer: ${q.answer}. ${q.explanation_en || q.extra_details || ''}`
+                "text": `Answer: ${q.answer}. Explanation: ${q.explanation_en || q.extra_details || 'See details.'}`
             }
         }))
     };
@@ -54,14 +52,12 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
     schemaScript.text = JSON.stringify(schemaData);
     document.head.appendChild(schemaScript);
 
-    // Cleanup function: runs when the user closes this reading view
+    // Cleanup on unmount
     return () => {
         document.title = originalTitle;
-        // Reset description to generic app description
         if (metaDescription) {
             metaDescription.setAttribute('content', 'A mobile-first news dashboard application featuring a modern, vibrant UI.');
         }
-        // Remove the schema script so it doesn't pollute other pages
         if (document.head.contains(schemaScript)) {
             document.head.removeChild(schemaScript);
         }
