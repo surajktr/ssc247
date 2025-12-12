@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { 
   ArrowLeft, ArrowRight, Menu, Play, Pause, 
   Timer, Star, CheckCircle, XCircle, Languages, X, Home,
@@ -161,10 +161,25 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
   // State
   const [lang, setLang] = useState<'en' | 'hi'>('en');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialProgress?.currentQuestionIndex || 0);
+
+  // Memoize shuffled questions to persist order across re-renders (but shuffle on new entry/mount)
+  const processedQuestions = useMemo(() => {
+    return questions.map(q => {
+        if (!q || !q.options) return q;
+        const shuffled = [...q.options];
+        // Fisher-Yates Shuffle
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return { ...q, options: shuffled };
+    });
+  }, [entry.id]); // Questions content is tied to entry.id
   
   const [questionStats, setQuestionStats] = useState<Record<number, QuestionStatus>>(() => {
-    if (existingResult) return existingResult.questionStats;
     if (initialProgress) return initialProgress.questionStats;
+    // Fix: Only use existing result if viewing solutions. If re-attempting, start fresh.
+    if (mode === 'solution' && existingResult) return existingResult.questionStats;
     
     const initial: Record<number, QuestionStatus> = {};
     questions.forEach((_, idx) => {
@@ -193,6 +208,10 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
   useEffect(() => {
     setShowSubmitDialog(false);
     setShowMenu(false);
+    // Reset index when entering solution mode
+    if (mode === 'solution') {
+      setCurrentQuestionIndex(0);
+    }
   }, [mode]);
 
   // --- Timers ---
@@ -395,14 +414,20 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                 </button>
             </header>
             <main className="flex-1 overflow-y-auto bg-white flex items-center justify-center">
-                <ScoreCard result={existingResult} onViewSolutions={() => setShowSolutionDetails(true)} />
+                <ScoreCard 
+                    result={existingResult} 
+                    onViewSolutions={() => {
+                        setCurrentQuestionIndex(0);
+                        setShowSolutionDetails(true);
+                    }} 
+                />
             </main>
         </div>
       );
   }
 
   // 2. Active Test / Solution Detail View
-  const currentQ = questions[currentQuestionIndex];
+  const currentQ = processedQuestions[currentQuestionIndex];
   // Safety check: if currentQ is null (e.g. data corruption), show error or skip
   if (!currentQ) {
       return (
@@ -566,7 +591,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
             
             {/* Options List */}
             <div className="space-y-3 pb-6" key={currentQuestionIndex}>
-            {(currentQ.options || []).map((option) => {
+            {(currentQ.options || []).map((option, optIdx) => {
                 if (!option) return null; // Safety check
                 const key = option.label;
                 const uniqueKey = `${currentQuestionIndex}-${key}`; 
@@ -574,6 +599,9 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                 
                 const isSelected = currentStat?.selectedOption === key;
                 const isCorrectAnswer = currentQ.answer && currentQ.answer.toLowerCase() === key.toLowerCase();
+                
+                // Display label based on shuffled position (A, B, C, D)
+                const displayLabel = String.fromCharCode(65 + optIdx);
                 
                 let containerClass = "border-gray-200 hover:border-gray-300 bg-white text-gray-700";
                 let iconClass = "bg-gray-100 text-gray-500 border-gray-200";
@@ -601,7 +629,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                     className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-200 flex items-start gap-3 shadow-sm active:scale-[0.99] ${containerClass}`}
                 >
                     <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border transition-colors uppercase ${iconClass}`}>
-                        {key}
+                        {displayLabel}
                     </span>
                     {/* Reduced font size for options */}
                     <div className={`flex-1 pt-0.5 text-sm font-medium ${lang === 'hi' ? 'font-serif' : ''}`}>
