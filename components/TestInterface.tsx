@@ -289,8 +289,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
-    } else {
-        // Last question logic
+    } else if (!isSolutionMode) {
+        // Last question logic - only for attempts
         setShowSubmitDialog(true);
     }
   };
@@ -527,9 +527,9 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
       {/* MAIN CONTENT */}
       <main 
         className={`flex-1 overflow-y-auto p-4 bg-gray-50 w-full transition-all duration-300 ${isPaused ? 'blur-sm pointer-events-none' : ''}`}
-        onTouchStart={!isSolutionMode ? onTouchStart : undefined}
-        onTouchMove={!isSolutionMode ? onTouchMove : undefined}
-        onTouchEnd={!isSolutionMode ? onTouchEnd : undefined}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
         <div className="max-w-6xl mx-auto pb-24">
             {/* Question Card */}
@@ -601,8 +601,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                             Explanation
                         </p>
                         <div className="text-base text-gray-800 leading-relaxed whitespace-pre-line space-y-2">
-                           {solutionTextEn && <p>{renderFormattedText(solutionTextEn)}</p>}
-                           {solutionTextHi && <p className="font-serif text-gray-600">{renderFormattedText(solutionTextHi)}</p>}
+                           {lang === 'en' && solutionTextEn && <p>{renderFormattedText(solutionTextEn)}</p>}
+                           {lang === 'hi' && solutionTextHi && <p className="font-serif text-gray-600">{renderFormattedText(solutionTextHi)}</p>}
                         </div>
                     </div>
                 </div>
