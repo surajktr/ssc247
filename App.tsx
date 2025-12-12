@@ -17,7 +17,7 @@ import {
 
 const App: React.FC = () => {
   // --- State: UI & Data ---
-  const [activeCategory, setActiveCategory] = useState<string>('current-affairs');
+  const [activeCategory, setActiveCategory] = useState<string>('reading-mode');
   
   // State: Current Affairs (Quiz Mode)
   const [currentAffairsTab, setCurrentAffairsTab] = useState<'Daily' | 'Weekly'>('Daily');
@@ -50,20 +50,20 @@ const App: React.FC = () => {
   // Constants: Categories
   const categories: Category[] = [
     {
-      id: 'current-affairs',
-      label: 'Attempt Quiz',
-      iconType: 'svg',
-      iconContent: 'globe',
-      gradientClass: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      shadowClass: 'shadow-blue-200'
-    },
-    {
       id: 'reading-mode',
       label: 'Recent CA',
       iconType: 'svg',
       iconContent: 'book',
       gradientClass: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
       shadowClass: 'shadow-emerald-200'
+    },
+    {
+      id: 'current-affairs',
+      label: 'Attempt Quiz',
+      iconType: 'svg',
+      iconContent: 'globe',
+      gradientClass: 'bg-gradient-to-br from-blue-500 to-blue-600',
+      shadowClass: 'shadow-blue-200'
     }
   ];
 

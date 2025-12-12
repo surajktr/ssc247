@@ -1,5 +1,4 @@
 import React from 'react';
-import { Mail } from 'lucide-react';
 
 interface FooterProps {
   onOpenTerms: () => void;
@@ -12,14 +11,6 @@ const Footer: React.FC<FooterProps> = ({ onOpenTerms, onOpenContact }) => {
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex flex-col items-center justify-center text-center space-y-3">
           
-          {/* Contact Highlight */}
-          <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 rounded-full text-blue-700 border border-blue-100">
-             <Mail className="w-3 h-3" />
-             <a href="mailto:ssc24x7@gmail.com" className="text-xs font-bold hover:underline">
-               ssc24x7@gmail.com
-             </a>
-          </div>
-
           {/* Navigation Links */}
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs font-semibold text-gray-500">
             <button onClick={onOpenTerms} className="hover:text-blue-600 transition-colors">
