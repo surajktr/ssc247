@@ -87,8 +87,8 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
                             {explanation && (
                                 <div className="ml-9 pt-3 border-t border-gray-100">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Explanation</p>
-                                    <div className={`text-sm text-gray-600 leading-relaxed space-y-2 ${lang === 'hi' ? 'font-serif' : ''}`}>
-                                        <p>{renderFormattedText(explanation)}</p>
+                                    <div className={`text-sm text-gray-600 leading-relaxed whitespace-pre-line ${lang === 'hi' ? 'font-serif' : ''}`}>
+                                        {renderFormattedText(explanation)}
                                     </div>
                                 </div>
                             )}
