@@ -113,7 +113,7 @@ const App: React.FC = () => {
 
   // --- Effects ---
 
-  // Initial Load: Fetch Local Data & Saved Progress
+  // Initial Load: Fetch Local Data, Saved Progress, and Check URL for Deep Links
   useEffect(() => {
     const savedResults = localStorage.getItem('dailygraph_quiz_results');
     if (savedResults) {
@@ -122,6 +122,17 @@ const App: React.FC = () => {
         } catch (e) { console.error("Failed to parse quiz results", e); }
     }
     refreshSavedProgress();
+
+    // Check URL for readingId (Deep Linking)
+    const params = new URLSearchParams(window.location.search);
+    const readingId = params.get('readingId');
+    if (readingId) {
+        // Automatically switch to Reading category and try to fetch specific entry
+        setActiveCategory('reading-mode');
+        fetchEntryById(readingId).then(entry => {
+            if (entry) setActiveReadingEntry(entry);
+        });
+    }
   }, []);
 
   // Refresh progress when a quiz is closed (to update Resume buttons)
@@ -131,12 +142,19 @@ const App: React.FC = () => {
     }
   }, [activeQuiz]);
 
-  // Handle Browser Back Button for Modals
+  // Handle Browser Back Button for Modals and URL Synchronization
   useEffect(() => {
     const isModalOpen = !!activeQuiz || !!selectedPost || !!activeReadingEntry;
 
     if (isModalOpen) {
-        window.history.pushState({ modalOpen: true }, '', window.location.href);
+        // Construct the URL based on state
+        let newUrl = window.location.pathname;
+        if (activeReadingEntry) {
+            newUrl += `?readingId=${activeReadingEntry.id}`;
+        }
+        
+        // Push state so back button works to close modal
+        window.history.pushState({ modalOpen: true }, '', newUrl);
 
         const handlePopState = () => {
             setActiveQuiz(null);
@@ -149,6 +167,12 @@ const App: React.FC = () => {
         return () => {
             window.removeEventListener('popstate', handlePopState);
         };
+    } else {
+        // Ensure URL is clean if no modal is open (via UI close button)
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('readingId')) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
     }
   }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry]);
 
@@ -238,6 +262,28 @@ const App: React.FC = () => {
     } finally {
         setLoadingReading(false);
     }
+  };
+
+  const fetchEntryById = async (id: string): Promise<CurrentAffairEntry | null> => {
+      try {
+          const { data, error } = await supabase
+              .from('current_affairs')
+              .select('id, upload_date, questions')
+              .eq('id', id)
+              .single();
+          
+          if (error) throw error;
+          if (data) {
+              return {
+                  id: data.id,
+                  upload_date: data.upload_date,
+                  questions: data.questions
+              };
+          }
+      } catch (error) {
+          console.error('Error fetching specific entry:', error);
+      }
+      return null;
   };
 
   // --- Logic for Grouping Current Affairs ---

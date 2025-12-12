@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Languages, BookOpen } from 'lucide-react';
 import { CurrentAffairEntry } from '../types';
 
@@ -10,6 +10,59 @@ interface ReadingInterfaceProps {
 export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBack }) => {
   const [lang, setLang] = useState<'en' | 'hi'>('en');
   const questions = entry.questions?.questions || [];
+
+  // --- SEO Logic ---
+  useEffect(() => {
+    // 1. Update Document Title
+    const originalTitle = document.title;
+    const pageTitle = entry.questions.title 
+        ? `${entry.questions.title} - SSC24x7` 
+        : `Current Affairs ${new Date(entry.upload_date).toLocaleDateString()} - SSC24x7`;
+    document.title = pageTitle;
+
+    // 2. Update Meta Description
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    // Use the first question as the description snippet for SEO
+    const firstQuestion = questions[0]?.question_en || "Daily Current Affairs Questions and Answers";
+    metaDescription.setAttribute('content', `Read current affairs: ${firstQuestion} and more on SSC24x7.`);
+
+    // 3. Inject JSON-LD Schema (FAQPage)
+    // This tells Google that this page contains specific Questions and Answers
+    const schemaScript = document.createElement('script');
+    schemaScript.type = 'application/ld+json';
+    
+    const schemaData = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": questions.map(q => ({
+            "@type": "Question",
+            "name": q.question_en,
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": `Answer: ${q.answer}. Explanation: ${q.explanation_en || q.extra_details || 'See details.'}`
+            }
+        }))
+    };
+    
+    schemaScript.text = JSON.stringify(schemaData);
+    document.head.appendChild(schemaScript);
+
+    // Cleanup on unmount
+    return () => {
+        document.title = originalTitle;
+        if (metaDescription) {
+            metaDescription.setAttribute('content', 'A mobile-first news dashboard application featuring a modern, vibrant UI.');
+        }
+        if (document.head.contains(schemaScript)) {
+            document.head.removeChild(schemaScript);
+        }
+    };
+  }, [entry, questions]);
 
   const renderFormattedText = (text: string) => {
     if (!text) return null;
@@ -78,11 +131,11 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
                         </div>
 
                         {explanation && (
-                            <div className="ml-6">
-                                <div className={`text-sm text-gray-700 leading-relaxed ${lang === 'hi' ? 'font-serif font-bold' : 'font-sans font-medium'}`}>
+                            <div className="ml-6 mt-3">
+                                <h4 className="text-red-600 font-bold text-xs uppercase tracking-wider mb-2">Explanation</h4>
+                                <div className={`text-sm text-black leading-relaxed ${lang === 'hi' ? 'font-serif font-bold' : 'font-sans font-semibold'}`}>
                                     {explanation.split('\n').filter(line => line.trim()).map((line, i) => (
                                         <div key={i} className="mb-2 last:mb-0">
-                                            <span className="font-bold text-gray-500 mr-1">Exp:</span>
                                             {renderFormattedText(line)}
                                         </div>
                                     ))}
