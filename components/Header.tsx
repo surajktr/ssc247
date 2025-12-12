@@ -6,7 +6,7 @@ const Header: React.FC = () => {
       <div className="flex items-center gap-2.5">
         {/* Logo Image */}
         <img 
-          src="https://cdwikwwpakmlauiddasz.supabase.co/storage/v1/object/public/question-images/Gemini_Generated_Image_1dqfda1dqfda1dqf.png" 
+          src="https://cdwikwwpakmlauiddasz.supabase.co/storage/v1/object/public/question-images/Gemini_Generated_Image_9y1amw9y1amw9y1a-fotor-2025121232823.png" 
           alt="SSC24x7 Logo" 
           className="w-10 h-10 object-contain shrink-0"
         />
