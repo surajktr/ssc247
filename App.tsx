@@ -3,6 +3,8 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Header from './components/Header';
 import CategoryCard from './components/CategoryCard';
 import PostItem from './components/PostItem';
+import Footer from './components/Footer';
+import { InfoPage } from './components/InfoPages';
 import { TestInterface } from './components/TestInterface';
 import { ReadingInterface } from './components/ReadingInterface';
 import { BlogPost, Category, CurrentAffairEntry, QuizResult, QuizQuestion, QuizProgress } from './types';
@@ -35,10 +37,11 @@ const App: React.FC = () => {
   // State: Accordions (Stores "Month Year" strings)
   const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
   
-  // State: Modals (Quiz, Reading, Reader)
+  // State: Modals (Quiz, Reading, Reader, InfoPages)
   const [activeQuiz, setActiveQuiz] = useState<{ entry: CurrentAffairEntry; mode: 'attempt' | 'solution'; initialProgress?: QuizProgress } | null>(null);
   const [activeReadingEntry, setActiveReadingEntry] = useState<CurrentAffairEntry | null>(null);
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  const [infoPage, setInfoPage] = useState<'terms' | 'contact' | null>(null);
   
   // State: Reader Settings
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -166,7 +169,8 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const deepLinkId = params.get('id') || params.get('readingId');
     
-    if (deepLinkId) {
+    // Robust check for ID format to prevent DB errors
+    if (deepLinkId && deepLinkId.length > 5) {
         // Automatically switch to Reading category
         setActiveCategory('reading-mode');
         // Fetch specific entry
@@ -185,11 +189,13 @@ const App: React.FC = () => {
 
   // Handle Browser Back Button for Modals and URL Synchronization
   useEffect(() => {
-    const isModalOpen = !!activeQuiz || !!selectedPost || !!activeReadingEntry;
+    const isModalOpen = !!activeQuiz || !!selectedPost || !!activeReadingEntry || !!infoPage;
 
     if (isModalOpen) {
         // Construct the URL based on state
-        let newUrl = window.location.pathname;
+        const currentPath = window.location.pathname;
+        const newParams = new URLSearchParams(window.location.search);
+
         if (activeReadingEntry) {
             // Generate readable slug: first-question-date
             const qData = activeReadingEntry.questions;
@@ -197,9 +203,7 @@ const App: React.FC = () => {
             
             // Safer access to questions[0]
             if (qData && qData.questions && Array.isArray(qData.questions) && qData.questions.length > 0) {
-                 // Use optional chaining for question_en as array items might be null
                  const qText = qData.questions[0]?.question_en;
-                 // Fix: Ensure qText is converted to string before use to avoid TypeError on .toLowerCase()
                  if (qText) firstQuestion = String(qText);
             }
             
@@ -213,17 +217,22 @@ const App: React.FC = () => {
             
             const dateStr = new Date(activeReadingEntry.upload_date).toISOString().split('T')[0];
             
-            // Final URL: /?post=slug-date&id=UUID
-            newUrl += `?post=${slug}-${dateStr}&id=${activeReadingEntry.id}`;
+            // Safe URL construction using URLSearchParams
+            newParams.set('post', `${slug}-${dateStr}`);
+            newParams.set('id', activeReadingEntry.id);
         }
         
         // Push state so back button works to close modal
-        window.history.pushState({ modalOpen: true }, '', newUrl);
+        const newUrl = `${currentPath}?${newParams.toString()}`;
+        if (window.location.search !== `?${newParams.toString()}`) {
+            window.history.pushState({ modalOpen: true }, '', newUrl);
+        }
 
         const handlePopState = () => {
             setActiveQuiz(null);
             setSelectedPost(null);
             setActiveReadingEntry(null);
+            setInfoPage(null);
         };
 
         window.addEventListener('popstate', handlePopState);
@@ -233,13 +242,12 @@ const App: React.FC = () => {
         };
     } else {
         // Ensure URL is clean if no modal is open (via UI close button)
-        // We use replaceState to avoid creating a new history entry just for cleaning
         const params = new URLSearchParams(window.location.search);
         if (params.has('id') || params.has('readingId') || params.has('post')) {
              window.history.replaceState(null, '', window.location.pathname);
         }
     }
-  }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry]);
+  }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry, !!infoPage]);
 
   // Fetch Current Affairs for Quiz Mode
   useEffect(() => {
@@ -261,7 +269,7 @@ const App: React.FC = () => {
 
   // Lock Body Scroll for Modals
   useEffect(() => {
-    if (selectedPost || activeQuiz || activeReadingEntry) {
+    if (selectedPost || activeQuiz || activeReadingEntry || infoPage) {
       document.body.style.overflow = 'hidden';
       if (selectedPost) {
         setZoomLevel(1);
@@ -271,7 +279,7 @@ const App: React.FC = () => {
       document.body.style.overflow = 'unset';
     }
     return () => { document.body.style.overflow = 'unset'; };
-  }, [selectedPost, activeQuiz, activeReadingEntry]);
+  }, [selectedPost, activeQuiz, activeReadingEntry, infoPage]);
 
   // --- Data Fetching ---
 
@@ -494,10 +502,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-900">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
       <Header />
       
-      <main className="max-w-6xl mx-auto p-3 space-y-4">
+      <main className="max-w-6xl mx-auto p-3 space-y-4 w-full flex-grow">
         
         {/* Category Navigation */}
         <section className="grid grid-cols-2 gap-3">
@@ -798,6 +806,11 @@ const App: React.FC = () => {
         )}
       </main>
 
+      <Footer 
+        onOpenTerms={() => setInfoPage('terms')} 
+        onOpenContact={() => setInfoPage('contact')} 
+      />
+
       {/* --- Quiz Modal --- */}
       {activeQuiz && (
         <TestInterface 
@@ -815,6 +828,14 @@ const App: React.FC = () => {
         <ReadingInterface 
             entry={activeReadingEntry}
             onBack={() => setActiveReadingEntry(null)}
+        />
+      )}
+      
+      {/* --- Info Pages (Terms/Contact) --- */}
+      {infoPage && (
+        <InfoPage 
+            type={infoPage} 
+            onClose={() => setInfoPage(null)} 
         />
       )}
 
