@@ -9,32 +9,34 @@ interface FooterProps {
 const Footer: React.FC<FooterProps> = ({ onOpenTerms, onOpenContact }) => {
   return (
     <footer className="bg-white border-t border-gray-200 mt-auto">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex flex-col items-center justify-center text-center space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="flex flex-col items-center justify-center text-center space-y-3">
           
           {/* Contact Highlight */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full text-blue-700 border border-blue-100">
-             <Mail className="w-4 h-4" />
-             <a href="mailto:ssc24x7@gmail.com" className="text-sm font-bold hover:underline">
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 rounded-full text-blue-700 border border-blue-100">
+             <Mail className="w-3 h-3" />
+             <a href="mailto:ssc24x7@gmail.com" className="text-xs font-bold hover:underline">
                ssc24x7@gmail.com
              </a>
           </div>
 
           {/* Navigation Links */}
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm font-semibold text-gray-600">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs font-semibold text-gray-500">
             <button onClick={onOpenTerms} className="hover:text-blue-600 transition-colors">
               Terms & Conditions
             </button>
+            <span className="text-gray-300">•</span>
             <button onClick={onOpenContact} className="hover:text-blue-600 transition-colors">
               Contact Us
             </button>
+            <span className="text-gray-300">•</span>
             <button onClick={onOpenTerms} className="hover:text-blue-600 transition-colors">
               Privacy Policy
             </button>
           </div>
 
           {/* Copyright */}
-          <div className="text-xs text-gray-400 font-medium pt-4 border-t border-gray-100 w-full max-w-xs mx-auto">
+          <div className="text-[10px] text-gray-400 font-medium pt-2 border-t border-gray-100 w-full max-w-[200px] mx-auto">
             © {new Date().getFullYear()} SSC24x7. All rights reserved.
           </div>
         </div>
