@@ -3,17 +3,17 @@ import Header from './components/Header';
 import CategoryCard from './components/CategoryCard';
 import PostItem from './components/PostItem';
 import { TestInterface } from './components/TestInterface';
-import { BlogPost, Category, CurrentAffairEntry, QuizResult, QuizQuestion, QuizProgress, VocabEntry, VocabQuestionRaw } from './types';
+import { ReadingInterface } from './components/ReadingInterface';
+import { BlogPost, Category, CurrentAffairEntry, QuizResult, QuizQuestion, QuizProgress } from './types';
 import { supabase } from './lib/supabase';
 import { 
   Loader2, Calendar, PlayCircle, RotateCcw, 
   Lock, ChevronDown, ChevronRight, ChevronUp, FileText, ArrowLeft, 
-  ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Globe, Clock, Trophy, Play
+  ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Globe, Clock
 } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State: UI & Data ---
-  const [loadingPosts, setLoadingPosts] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('current-affairs');
   
   // State: Current Affairs
@@ -22,47 +22,38 @@ const App: React.FC = () => {
   const [loadingCurrentAffairs, setLoadingCurrentAffairs] = useState(false);
   const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
   
-  // State: Vocab
-  const [vocabTab, setVocabTab] = useState<string>('Synonyms');
-  const [vocabList, setVocabList] = useState<VocabEntry[]>([]);
-  
   // State: Saved Progress (for Resume functionality)
   const [savedProgressIds, setSavedProgressIds] = useState<Set<string>>(new Set());
 
   // State: Accordions (Stores "Month Year" strings)
   const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
   
-  // State: Modals (Quiz & Reader)
+  // State: Modals (Quiz, Reading, Reader)
   const [activeQuiz, setActiveQuiz] = useState<{ entry: CurrentAffairEntry; mode: 'attempt' | 'solution'; initialProgress?: QuizProgress } | null>(null);
+  const [activeReadingEntry, setActiveReadingEntry] = useState<CurrentAffairEntry | null>(null);
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
   
   // State: Reader Settings
   const [zoomLevel, setZoomLevel] = useState(1);
   const [readerDarkMode, setReaderDarkMode] = useState(false);
   
-  // State: Recent Posts (Legacy / Fallback)
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-
-  // Refs
-  const articleContainerRef = useRef<HTMLDivElement>(null);
-
   // Constants: Categories
   const categories: Category[] = [
     {
       id: 'current-affairs',
-      label: 'Current Affairs',
+      label: 'Attempt Quiz',
       iconType: 'svg',
       iconContent: 'globe',
       gradientClass: 'bg-gradient-to-br from-blue-500 to-blue-600',
       shadowClass: 'shadow-blue-200'
     },
     {
-      id: 'vocab',
-      label: 'Vocab',
+      id: 'reading-mode',
+      label: 'Read CA',
       iconType: 'svg',
       iconContent: 'book',
-      gradientClass: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
-      shadowClass: 'shadow-indigo-200'
+      gradientClass: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+      shadowClass: 'shadow-emerald-200'
     }
   ];
 
@@ -78,12 +69,6 @@ const App: React.FC = () => {
   
   const getCurrentMonthKey = () => {
       return new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-  };
-
-  // Cleans the title by removing " - Month Year" or similar date suffixes
-  const cleanTitle = (title: string) => {
-    if (!title) return '';
-    return title.replace(/\s*[-–]\s*(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\d,]*$/i, '');
   };
 
   const getVirtualWeekEntry = (weekItem: any, monthKey: string): CurrentAffairEntry => {
@@ -142,16 +127,15 @@ const App: React.FC = () => {
 
   // Handle Browser Back Button for Modals
   useEffect(() => {
-    const isModalOpen = !!activeQuiz || !!selectedPost;
+    const isModalOpen = !!activeQuiz || !!selectedPost || !!activeReadingEntry;
 
     if (isModalOpen) {
-        // Push state when opening modal to allow back button to close it
         window.history.pushState({ modalOpen: true }, '', window.location.href);
 
         const handlePopState = () => {
-            // Close modals on back button
             setActiveQuiz(null);
             setSelectedPost(null);
+            setActiveReadingEntry(null);
         };
 
         window.addEventListener('popstate', handlePopState);
@@ -160,16 +144,12 @@ const App: React.FC = () => {
             window.removeEventListener('popstate', handlePopState);
         };
     }
-  }, [!!activeQuiz, !!selectedPost]);
+  }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry]);
 
-  // Fetch Current Affairs when active
+  // Fetch Current Affairs
   useEffect(() => {
-    if (activeCategory === 'current-affairs') {
-        fetchCurrentAffairs();
-    } else if (activeCategory === 'vocab') {
-        fetchVocabQuestions();
-    }
-  }, [activeCategory]);
+      fetchCurrentAffairs();
+  }, []);
 
   // Handle Tab Switch: Default to Current Month Expansion
   useEffect(() => {
@@ -179,7 +159,7 @@ const App: React.FC = () => {
 
   // Lock Body Scroll for Modals
   useEffect(() => {
-    if (selectedPost || activeQuiz) {
+    if (selectedPost || activeQuiz || activeReadingEntry) {
       document.body.style.overflow = 'hidden';
       if (selectedPost) {
         setZoomLevel(1);
@@ -189,28 +169,9 @@ const App: React.FC = () => {
       document.body.style.overflow = 'unset';
     }
     return () => { document.body.style.overflow = 'unset'; };
-  }, [selectedPost, activeQuiz]);
+  }, [selectedPost, activeQuiz, activeReadingEntry]);
 
   // --- Data Fetching ---
-
-  const fetchVocabQuestions = async () => {
-    setLoadingPosts(true);
-    try {
-      const { data, error } = await supabase
-        .from('vocab_questions')
-        .select('*')
-        .order('upload_date', { ascending: false });
-
-      if (error) throw error;
-      if (data) {
-        setVocabList(data as VocabEntry[]);
-      }
-    } catch (error) {
-      console.error('Error fetching vocab:', error);
-    } finally {
-      setLoadingPosts(false);
-    }
-  };
 
   const fetchCurrentAffairs = async () => {
       setLoadingCurrentAffairs(true);
@@ -234,29 +195,6 @@ const App: React.FC = () => {
           console.error('Error fetching CA:', error);
       } finally {
           setLoadingCurrentAffairs(false);
-      }
-  };
-
-  const fetchPostContent = async (post: BlogPost) => {
-      // Legacy support for any old blog posts, though new flow uses Quiz
-      try {
-          const { data, error } = await supabase
-            .from('daily_graphs')
-            .select('content_html, css')
-            .eq('id', post.id)
-            .single();
-            
-          if (error) throw error;
-          
-          if (data) {
-              setSelectedPost({
-                  ...post,
-                  htmlContent: data.content_html,
-                  styles: data.css
-              });
-          }
-      } catch (e) {
-          console.error("Error fetching post content", e);
       }
   };
 
@@ -365,80 +303,13 @@ const App: React.FC = () => {
         if (!data) return false;
         
         if (currentAffairsTab === 'Weekly') {
-            // For weekly, check if any week has questions > 0
             return data.some((w: any) => w.questionCount > 0);
         }
-        // For daily, check if array is not empty
         return data.length > 0;
     })
     .sort((a, b) => {
       return new Date(b).getTime() - new Date(a).getTime();
   });
-
-  // --- Vocab Helpers ---
-
-  // Helper to extract questions based on active vocab tab
-  const getQuestionsForVocabTab = (entry: VocabEntry): VocabQuestionRaw[] => {
-    switch (vocabTab) {
-      case 'Synonyms': return entry.syno_questions || [];
-      case 'Antonyms': return entry.antonyms_questions || [];
-      case 'Idioms': return entry.idioms_questions || [];
-      case 'OWS': return entry.ows_questions || [];
-      default: return [];
-    }
-  };
-
-  // Filter Vocab List to only show entries that have data for the active tab
-  const filteredVocabList = useMemo(() => {
-    return vocabList.filter(entry => {
-      const q = getQuestionsForVocabTab(entry);
-      return q && q.length > 0;
-    });
-  }, [vocabList, vocabTab]);
-
-  // Transform VocabQuestionRaw (from JSON) to QuizQuestion (for App Interface)
-  const transformVocabToQuizQuestion = (vocabEntry: VocabEntry): CurrentAffairEntry => {
-    const rawQuestions = getQuestionsForVocabTab(vocabEntry);
-    
-    const transformedQuestions: QuizQuestion[] = rawQuestions.map((q) => {
-      // Convert options object {"A": "val", ...} to array [{label: "A", text_en: "val", ...}]
-      const optionsArray = Object.entries(q.options).map(([key, value]) => ({
-        label: key,
-        text_en: value,
-        text_hi: "" // Vocab options usually English only or standard
-      })).sort((a, b) => a.label.localeCompare(b.label));
-
-      return {
-        id: q.id,
-        question_en: q.question,
-        question_hi: "", // Vocab usually doesn't have Hindi question text
-        options: optionsArray,
-        answer: q.answer,
-        explanation_en: q.solution
-      };
-    });
-
-    // Create a virtual ID that includes the tab so progress is saved uniquely per tab
-    // e.g., "vocab-uuid-Synonyms"
-    const virtualId = `vocab-${vocabEntry.id}-${vocabTab}`;
-
-    return {
-      id: virtualId,
-      upload_date: vocabEntry.upload_date,
-      questions: {
-        title: `${vocabTab} - ${new Date(vocabEntry.upload_date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`,
-        description: `Vocabulary Practice: ${vocabTab}`,
-        questions: transformedQuestions
-      }
-    };
-  };
-
-  const startVocabQuiz = (entry: VocabEntry) => {
-    const virtualEntry = transformVocabToQuizQuestion(entry);
-    const progress = checkAndLoadProgress(virtualEntry);
-    setActiveQuiz({ entry: virtualEntry, mode: 'attempt', initialProgress: progress });
-  };
-
 
   // --- Render Helpers ---
 
@@ -472,7 +343,6 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-900">
       <Header />
       
-      {/* Changed max-w-3xl to max-w-6xl for wider view on Desktop */}
       <main className="max-w-6xl mx-auto p-3 space-y-4">
         
         {/* Category Navigation */}
@@ -487,7 +357,7 @@ const App: React.FC = () => {
           ))}
         </section>
 
-        {/* --- Current Affairs View --- */}
+        {/* --- Current Affairs Quiz View --- */}
         {activeCategory === 'current-affairs' && (
           <div className="animate-in fade-in duration-300 space-y-4">
             {/* Tabs */}
@@ -632,8 +502,6 @@ const App: React.FC = () => {
                                     <div className="border-t border-gray-100 divide-y divide-gray-50 bg-white">
                                         {items.map((entry: CurrentAffairEntry) => {
                                             const result = quizResults[entry.id];
-                                            
-                                            // Override title for Daily CA as requested to "Daily Current Affairs"
                                             const displayTitle = "Daily Current Affairs";
                                             const questionCount = entry.questions?.questions?.length || 0;
                                             const isResumable = savedProgressIds.has(entry.id);
@@ -695,99 +563,61 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- Vocab/Editorial View --- */}
-        {activeCategory === 'vocab' && (
+        {/* --- Reading Mode View --- */}
+        {activeCategory === 'reading-mode' && (
              <div className="animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4 px-1">
-                    <h2 className="text-lg font-bold text-gray-800">Vocab Updates</h2>
+                    <h2 className="text-lg font-bold text-gray-800">Reading Archive</h2>
                 </div>
 
-                {/* Vocab Tabs */}
-                <div className="flex p-1 bg-white rounded-xl border border-gray-200 shadow-sm mb-4 overflow-x-auto no-scrollbar">
-                  {['Synonyms', 'Antonyms', 'Idioms', 'OWS'].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setVocabTab(tab)}
-                      className={`flex-1 min-w-[80px] py-2 text-xs sm:text-sm font-bold rounded-lg transition-all whitespace-nowrap ${
-                        vocabTab === tab 
-                          ? 'bg-blue-100 text-blue-800 shadow-sm' 
-                          : 'text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-
-                {loadingPosts ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-blue-600">
+                {loadingCurrentAffairs ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-emerald-600">
                         <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                        <span className="text-sm font-medium">Loading vocab...</span>
+                        <span className="text-sm font-medium">Loading reading material...</span>
                     </div>
-                ) : filteredVocabList.length === 0 ? (
+                ) : currentAffairsList.length === 0 ? (
                     <div className="text-center py-10 bg-white rounded-xl border border-gray-200 border-dashed">
                         <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-gray-500 text-sm">No {vocabTab} updates found.</p>
+                        <p className="text-gray-500 text-sm">No updates available to read.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 gap-3">
-                        {filteredVocabList.map(vocabEntry => {
-                            // Construct virtual ID for result tracking
-                            const virtualId = `vocab-${vocabEntry.id}-${vocabTab}`;
-                            const result = quizResults[virtualId];
-                            const questions = getQuestionsForVocabTab(vocabEntry);
-                            const count = questions.length;
-                            const isResumable = savedProgressIds.has(virtualId);
-                            
+                        {/* Simply list the daily current affairs items, excluding weekly/monthly compilations if desirable, 
+                            but keeping them is fine too if they are just collections. 
+                            Filtering for "Weekly" in title might be good if we want only daily.
+                        */}
+                        {currentAffairsList
+                            .filter(item => {
+                                const title = item.questions?.title?.toLowerCase() || '';
+                                return !title.includes('weekly') && !title.includes('monthly');
+                            })
+                            .slice(0, 15) // Limit to recent 15 for "Reading Mode" feed or just show all
+                            .map(entry => {
+                            const questionCount = entry.questions?.questions?.length || 0;
+                            const displayDate = new Date(entry.upload_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                            const displayTitle = `Daily Current Affairs ${displayDate}`;
+
                             return (
                                 <article 
-                                    key={vocabEntry.id}
-                                    className="h-full flex flex-col p-4 rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-200"
+                                    key={entry.id}
+                                    onClick={() => setActiveReadingEntry(entry)}
+                                    className="group flex flex-col p-4 rounded-xl border border-gray-100 bg-white hover:border-emerald-200 hover:shadow-md transition-all duration-200 cursor-pointer"
                                 >
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center">
-                                            <div className="w-10 h-10 flex-shrink-0 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mr-3 shadow-sm">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 flex-shrink-0 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                                                 <BookOpen className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <h3 className="text-base font-bold text-gray-800">
-                                                    {vocabTab} - {new Date(vocabEntry.upload_date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                                                <h3 className="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">
+                                                    {displayTitle}
                                                 </h3>
                                                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                                    {count} Questions • {new Date(vocabEntry.upload_date).getFullYear()}
+                                                    {questionCount} Questions • Read Now
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2 mt-1">
-                                         {(result && !isResumable) ? (
-                                            <>
-                                                <button 
-                                                    onClick={() => {
-                                                        const virtualEntry = transformVocabToQuizQuestion(vocabEntry);
-                                                        setActiveQuiz({ entry: virtualEntry, mode: 'solution' });
-                                                    }}
-                                                    className="flex-1 py-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 flex items-center justify-center"
-                                                >
-                                                    Solution
-                                                </button>
-                                                <button 
-                                                    onClick={() => startVocabQuiz(vocabEntry)}
-                                                    className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100"
-                                                    title="Re-attempt"
-                                                >
-                                                    <RotateCcw className="w-4 h-4" />
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <button 
-                                                onClick={() => startVocabQuiz(vocabEntry)}
-                                                className={`flex-1 py-2 ${isResumable ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-blue-600 text-white border-transparent'} border text-xs font-bold rounded-lg transition-all active:scale-95 shadow-sm flex items-center justify-center`}
-                                            >
-                                                {isResumable ? 'Resume Quiz' : 'Start Quiz'} <ChevronRight className="w-3 h-3 ml-1" />
-                                            </button>
-                                        )}
+                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-emerald-500" />
                                     </div>
                                 </article>
                             );
@@ -810,7 +640,15 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* --- Reader Modal --- */}
+      {/* --- Reading Mode Modal --- */}
+      {activeReadingEntry && (
+        <ReadingInterface 
+            entry={activeReadingEntry}
+            onBack={() => setActiveReadingEntry(null)}
+        />
+      )}
+
+      {/* --- Reader Modal (Legacy Posts) --- */}
       {selectedPost && (
         <div className="fixed inset-0 z-[1200] bg-white flex flex-col animate-in slide-in-from-bottom-10 duration-200">
             {/* Reader Header */}
