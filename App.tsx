@@ -1,3 +1,4 @@
+// ... (imports)
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Header from './components/Header';
 import CategoryCard from './components/CategoryCard';
@@ -42,7 +43,7 @@ const App: React.FC = () => {
   // State: Reader Settings
   const [zoomLevel, setZoomLevel] = useState(1);
   const [readerDarkMode, setReaderDarkMode] = useState(false);
-  
+
   // Constants: Categories
   const categories: Category[] = [
     {
@@ -110,6 +111,43 @@ const App: React.FC = () => {
           .map(k => k.replace('quiz_progress_', ''));
       setSavedProgressIds(new Set(progressIds));
   };
+  
+  const parseQuestions = (q: any) => {
+      if (!q) return { title: '', description: '', questions: [] };
+      
+      let parsed = q;
+      if (typeof q === 'string') {
+          try { 
+              parsed = JSON.parse(q); 
+              // Handle double-stringified JSON which can happen with some DB imports
+              if (typeof parsed === 'string') {
+                  parsed = JSON.parse(parsed);
+              }
+          } catch(e) { 
+              return { title: '', description: '', questions: [] }; 
+          }
+      }
+      
+      // If the root is an array, wrap it in the expected object structure
+      if (Array.isArray(parsed)) {
+          return { 
+              title: 'Daily Current Affairs', 
+              description: '', 
+              questions: parsed 
+          };
+      }
+      
+      // If it's an object, check for 'questions' property
+      if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed.questions)) {
+              return parsed;
+          }
+          // If 'questions' is missing or not array, return empty questions list
+          return { ...parsed, questions: [] };
+      }
+
+      return { title: '', description: '', questions: [] };
+  };
 
   // --- Effects ---
 
@@ -123,13 +161,16 @@ const App: React.FC = () => {
     }
     refreshSavedProgress();
 
-    // Check URL for readingId (Deep Linking)
+    // Check URL for Deep Linking
+    // Supports legacy ?readingId=... and new ?post=...&id=...
     const params = new URLSearchParams(window.location.search);
-    const readingId = params.get('readingId');
-    if (readingId) {
-        // Automatically switch to Reading category and try to fetch specific entry
+    const deepLinkId = params.get('id') || params.get('readingId');
+    
+    if (deepLinkId) {
+        // Automatically switch to Reading category
         setActiveCategory('reading-mode');
-        fetchEntryById(readingId).then(entry => {
+        // Fetch specific entry
+        fetchEntryById(deepLinkId).then(entry => {
             if (entry) setActiveReadingEntry(entry);
         });
     }
@@ -150,7 +191,30 @@ const App: React.FC = () => {
         // Construct the URL based on state
         let newUrl = window.location.pathname;
         if (activeReadingEntry) {
-            newUrl += `?readingId=${activeReadingEntry.id}`;
+            // Generate readable slug: first-question-date
+            const qData = activeReadingEntry.questions;
+            let firstQuestion = "daily-current-affairs";
+            
+            // Safer access to questions[0]
+            if (qData && qData.questions && Array.isArray(qData.questions) && qData.questions.length > 0) {
+                 // Use optional chaining for question_en as array items might be null
+                 const qText = qData.questions[0]?.question_en;
+                 // Fix: Ensure qText is converted to string before use to avoid TypeError on .toLowerCase()
+                 if (qText) firstQuestion = String(qText);
+            }
+            
+            // Format slug
+            const slug = firstQuestion
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '') // remove special chars
+                .trim()
+                .replace(/\s+/g, '-') // replace spaces with hyphens
+                .substring(0, 100); // reasonable length
+            
+            const dateStr = new Date(activeReadingEntry.upload_date).toISOString().split('T')[0];
+            
+            // Final URL: /?post=slug-date&id=UUID
+            newUrl += `?post=${slug}-${dateStr}&id=${activeReadingEntry.id}`;
         }
         
         // Push state so back button works to close modal
@@ -169,9 +233,10 @@ const App: React.FC = () => {
         };
     } else {
         // Ensure URL is clean if no modal is open (via UI close button)
+        // We use replaceState to avoid creating a new history entry just for cleaning
         const params = new URLSearchParams(window.location.search);
-        if (params.has('readingId')) {
-            window.history.replaceState(null, '', window.location.pathname);
+        if (params.has('id') || params.has('readingId') || params.has('post')) {
+             window.history.replaceState(null, '', window.location.pathname);
         }
     }
   }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry]);
@@ -224,7 +289,7 @@ const App: React.FC = () => {
               const formatted = data.map((item: any) => ({
                   id: item.id,
                   upload_date: item.upload_date,
-                  questions: item.questions
+                  questions: parseQuestions(item.questions)
               }));
               setCurrentAffairsList(formatted);
           }
@@ -253,7 +318,7 @@ const App: React.FC = () => {
             const formatted = data.map((item: any) => ({
                 id: item.id,
                 upload_date: item.upload_date,
-                questions: item.questions
+                questions: parseQuestions(item.questions)
             }));
             setReadingItems(formatted);
         }
@@ -264,6 +329,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper to fetch a single entry for Deep Linking
   const fetchEntryById = async (id: string): Promise<CurrentAffairEntry | null> => {
       try {
           const { data, error } = await supabase
@@ -277,7 +343,7 @@ const App: React.FC = () => {
               return {
                   id: data.id,
                   upload_date: data.upload_date,
-                  questions: data.questions
+                  questions: parseQuestions(data.questions)
               };
           }
       } catch (error) {

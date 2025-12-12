@@ -154,7 +154,9 @@ const ScoreCard: React.FC<{ result: QuizResult; onViewSolutions: () => void }> =
 
 export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initialProgress, existingResult, onExit, onComplete }) => {
   const isSolutionMode = mode === 'solution';
-  const questions = entry.questions?.questions || [];
+  // Fallback if questions is not array
+  const rawQuestions = entry.questions?.questions;
+  const questions = Array.isArray(rawQuestions) ? rawQuestions : [];
   
   // State
   const [lang, setLang] = useState<'en' | 'hi'>('en');
@@ -308,8 +310,12 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
     // Calculate Score
     let score = 0;
     questions.forEach((q, idx) => {
+        // Safety check for question existence
+        if (!q) return;
+
         const selected = questionStats[idx]?.selectedOption;
-        if (selected && selected.toLowerCase() === q.answer.toLowerCase()) {
+        // Safety check for answer existence
+        if (selected && q.answer && selected.toLowerCase() === q.answer.toLowerCase()) {
             score += 1;
         } else if (selected) {
             score -= 0.25;
@@ -345,9 +351,10 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
   };
 
   // Helper to render formatted text (bolding)
-  const renderFormattedText = (text: string) => {
+  const renderFormattedText = (text: any) => {
     if (!text) return null;
-    const parts = text.split(/(\*\*.*?\*\*)/g);
+    const stringText = String(text); // Force string to prevent crash
+    const parts = stringText.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, index) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return <strong key={index} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
@@ -396,15 +403,31 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
 
   // 2. Active Test / Solution Detail View
   const currentQ = questions[currentQuestionIndex];
+  // Safety check: if currentQ is null (e.g. data corruption), show error or skip
+  if (!currentQ) {
+      return (
+         <div className="fixed inset-0 z-[1200] bg-white flex items-center justify-center">
+            <div className="text-center">
+               <p className="text-gray-500 mb-4">Question unavailable (Data Error).</p>
+               <Button onClick={() => {
+                  if (currentQuestionIndex < questions.length - 1) handleNext();
+                  else handlePrev();
+               }}>Skip Question</Button>
+               <Button variant="ghost" className="mt-2" onClick={onExit}>Exit</Button>
+            </div>
+         </div>
+      );
+  }
+
   const currentStat = questionStats[currentQuestionIndex];
-  const questionText = lang === 'en' ? currentQ.question_en : currentQ.question_hi;
+  const questionText = lang === 'en' ? (currentQ.question_en || "") : (currentQ.question_hi || "");
   const solutionTextEn = currentQ.explanation_en || currentQ.solution_en || currentQ.extra_details;
   const solutionTextHi = currentQ.explanation_hi || currentQ.solution_hi;
 
   // Determine status for Solution Mode Header
   let solutionStatusBadge = null;
   if (isSolutionMode) {
-      const isCorrect = currentStat?.selectedOption?.toLowerCase() === currentQ.answer.toLowerCase();
+      const isCorrect = currentStat?.selectedOption && currentQ.answer && currentStat.selectedOption.toLowerCase() === currentQ.answer.toLowerCase();
       const isSkipped = !currentStat?.selectedOption;
       
       if (isCorrect) {
@@ -537,19 +560,20 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                 {/* Reduced font size for questions */}
                 <p className={`text-base md:text-lg font-medium text-gray-900 leading-relaxed ${lang === 'hi' ? 'font-serif' : ''}`}>
-                    {questionText}
+                    {renderFormattedText(questionText)}
                 </p>
             </div>
             
             {/* Options List */}
             <div className="space-y-3 pb-6" key={currentQuestionIndex}>
-            {currentQ.options.map((option) => {
+            {(currentQ.options || []).map((option) => {
+                if (!option) return null; // Safety check
                 const key = option.label;
                 const uniqueKey = `${currentQuestionIndex}-${key}`; 
-                const optionText = lang === 'en' ? option.text_en : option.text_hi;
+                const optionText = lang === 'en' ? (option.text_en || "") : (option.text_hi || "");
                 
                 const isSelected = currentStat?.selectedOption === key;
-                const isCorrectAnswer = currentQ.answer.toLowerCase() === key.toLowerCase();
+                const isCorrectAnswer = currentQ.answer && currentQ.answer.toLowerCase() === key.toLowerCase();
                 
                 let containerClass = "border-gray-200 hover:border-gray-300 bg-white text-gray-700";
                 let iconClass = "bg-gray-100 text-gray-500 border-gray-200";
@@ -684,7 +708,9 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ entry, mode, initi
                   let stateClass = "border-gray-200 text-gray-600 bg-white hover:border-gray-300"; 
                   
                   if (isSolutionMode) {
-                     const isCorrect = stats?.selectedOption?.toLowerCase() === questions[idx].answer.toLowerCase();
+                     // Check currentQ.answer existence safely
+                     const currentAns = questions[idx]?.answer;
+                     const isCorrect = currentAns && stats?.selectedOption?.toLowerCase() === currentAns.toLowerCase();
                      const isSkipped = !stats?.selectedOption;
                      
                      if (isCorrect) stateClass = "bg-green-500 text-white border-green-500 shadow-sm";
