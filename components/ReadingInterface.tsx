@@ -16,7 +16,7 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, index) => {
       if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={index} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+        return <strong key={index} className="font-extrabold text-black bg-yellow-100 px-1 rounded-sm mx-0.5 shadow-sm">{part.slice(2, -2)}</strong>;
       }
       return <span key={index}>{part}</span>;
     });
@@ -87,7 +87,7 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
                             {explanation && (
                                 <div className="ml-9 pt-3 border-t border-gray-100">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Explanation</p>
-                                    <div className={`text-sm text-gray-600 leading-relaxed whitespace-pre-line ${lang === 'hi' ? 'font-serif' : ''}`}>
+                                    <div className={`text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-line font-medium ${lang === 'hi' ? 'font-serif' : 'font-sans'}`}>
                                         {renderFormattedText(explanation)}
                                     </div>
                                 </div>
