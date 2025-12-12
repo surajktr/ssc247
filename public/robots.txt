@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 
-# Points to the live Supabase Edge Function for automatic updates
-Sitemap: https://cdwikwwpakmlauiddasz.supabase.co/functions/v1/sitemap
+Sitemap: https://www.ssc247.in/sitemap.xml
