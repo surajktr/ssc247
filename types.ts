@@ -49,7 +49,8 @@ export interface QuizContent {
 export interface CurrentAffairEntry {
   id: string;
   upload_date: string;
-  questions: QuizContent; // Updated to match new root object structure
+  questions: QuizContent; 
+  source?: 'daily' | 'topic';
 }
 
 // New Types for Vocab Questions Table

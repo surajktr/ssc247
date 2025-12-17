@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Header from './components/Header';
 import CategoryCard from './components/CategoryCard';
-import PostItem from './components/PostItem';
 import Footer from './components/Footer';
 import { InfoPage } from './components/InfoPages';
 import { TestInterface } from './components/TestInterface';
@@ -12,24 +11,33 @@ import { supabase } from './lib/supabase';
 import { 
   Loader2, Calendar, PlayCircle, RotateCcw, 
   Lock, ChevronDown, ChevronRight, ChevronUp, FileText, ArrowLeft, 
-  ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Globe, Clock, ChevronLeft
+  ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Clock, ChevronLeft, DownloadCloud,
+  Layers
 } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State: UI & Data ---
   const [activeCategory, setActiveCategory] = useState<string>('reading-mode');
   
-  // State: Current Affairs (Quiz Mode)
-  const [currentAffairsTab, setCurrentAffairsTab] = useState<'Daily' | 'Weekly'>('Daily');
-  const [currentAffairsList, setCurrentAffairsList] = useState<CurrentAffairEntry[]>([]);
-  const [loadingCurrentAffairs, setLoadingCurrentAffairs] = useState(false);
+  // State: Data Management
+  // We keep a unified list but items are tagged with 'source'
+  const [allEntries, setAllEntries] = useState<CurrentAffairEntry[]>([]);
+  
+  // Pagination & Loading States for separate sources
+  const [pageMap, setPageMap] = useState({ daily: 0, topic: 0 });
+  const [hasMoreMap, setHasMoreMap] = useState({ daily: true, topic: true });
+  const [loadingMap, setLoadingMap] = useState({ daily: false, topic: false });
+  
+  const BATCH_SIZE = 7; 
+
+  // State: Tabs
+  const [readingTab, setReadingTab] = useState<'Daily' | 'Topic Wise'>('Daily');
+  const [currentAffairsTab, setCurrentAffairsTab] = useState<'Daily' | 'Weekly' | 'Topic Wise'>('Daily');
+  
   const [quizResults, setQuizResults] = useState<Record<string, QuizResult>>({});
   
-  // State: Reading Mode Pagination
-  const [readingItems, setReadingItems] = useState<CurrentAffairEntry[]>([]);
-  const [readingPage, setReadingPage] = useState(0);
-  const [loadingReading, setLoadingReading] = useState(false);
-  const READING_PAGE_SIZE = 7;
+  // State: Reading Mode Pagination (Client-side view pagination)
+  const [readingUiPage, setReadingUiPage] = useState(0);
   
   // State: Saved Progress (for Resume functionality)
   const [savedProgressIds, setSavedProgressIds] = useState<Set<string>>(new Set());
@@ -89,7 +97,8 @@ const App: React.FC = () => {
             title: `${monthKey} - ${weekItem.label}`,
             description: `Aggregated Current Affairs for ${weekItem.label}`,
             questions: weekItem.questions
-        }
+        },
+        source: 'daily'
     };
   };
 
@@ -164,21 +173,30 @@ const App: React.FC = () => {
     }
     refreshSavedProgress();
 
+    // Initial Data Fetch (Daily)
+    fetchData('daily', 0);
+
     // Check URL for Deep Linking
-    // Supports legacy ?readingId=... and new ?post=...&id=...
     const params = new URLSearchParams(window.location.search);
     const deepLinkId = params.get('id') || params.get('readingId');
     
-    // Robust check for ID format to prevent DB errors
     if (deepLinkId && deepLinkId.length > 5) {
-        // Automatically switch to Reading category
         setActiveCategory('reading-mode');
-        // Fetch specific entry
         fetchEntryById(deepLinkId).then(entry => {
             if (entry) setActiveReadingEntry(entry);
         });
     }
   }, []);
+
+  // Fetch Topic data when user switches to Topic tab and data is missing
+  useEffect(() => {
+    const isTopicTab = readingTab === 'Topic Wise' || currentAffairsTab === 'Topic Wise';
+    const hasTopics = allEntries.some(e => e.source === 'topic');
+    
+    if (isTopicTab && !hasTopics && !loadingMap.topic && hasMoreMap.topic) {
+        fetchData('topic', 0);
+    }
+  }, [readingTab, currentAffairsTab]);
 
   // Refresh progress when a quiz is closed (to update Resume buttons)
   useEffect(() => {
@@ -192,37 +210,28 @@ const App: React.FC = () => {
     const isModalOpen = !!activeQuiz || !!selectedPost || !!activeReadingEntry || !!infoPage;
 
     if (isModalOpen) {
-        // Construct the URL based on state
         const currentPath = window.location.pathname;
         const newParams = new URLSearchParams(window.location.search);
 
         if (activeReadingEntry) {
-            // Generate readable slug: first-question-date
             const qData = activeReadingEntry.questions;
             let firstQuestion = "daily-current-affairs";
-            
-            // Safer access to questions[0]
             if (qData && qData.questions && Array.isArray(qData.questions) && qData.questions.length > 0) {
                  const qText = qData.questions[0]?.question_en;
                  if (qText) firstQuestion = String(qText);
             }
-            
-            // Format slug
             const slug = firstQuestion
                 .toLowerCase()
-                .replace(/[^a-z0-9\s-]/g, '') // remove special chars
+                .replace(/[^a-z0-9\s-]/g, '') 
                 .trim()
-                .replace(/\s+/g, '-') // replace spaces with hyphens
-                .substring(0, 100); // reasonable length
+                .replace(/\s+/g, '-') 
+                .substring(0, 100); 
             
             const dateStr = new Date(activeReadingEntry.upload_date).toISOString().split('T')[0];
-            
-            // Safe URL construction using URLSearchParams
             newParams.set('post', `${slug}-${dateStr}`);
             newParams.set('id', activeReadingEntry.id);
         }
         
-        // Push state so back button works to close modal
         const queryString = newParams.toString();
         const newUrl = queryString ? `${currentPath}?${queryString}` : currentPath;
         
@@ -243,32 +252,18 @@ const App: React.FC = () => {
             window.removeEventListener('popstate', handlePopState);
         };
     } else {
-        // Ensure URL is clean if no modal is open (via UI close button)
         const params = new URLSearchParams(window.location.search);
-        // Also cleanup if there's a dangling '?' or empty params
         if (params.has('id') || params.has('readingId') || params.has('post') || window.location.search === '?') {
              window.history.replaceState(null, '', window.location.pathname);
         }
     }
   }, [!!activeQuiz, !!selectedPost, !!activeReadingEntry, !!infoPage]);
 
-  // Fetch Current Affairs for Quiz Mode
-  useEffect(() => {
-      fetchCurrentAffairs();
-  }, []);
-
-  // Fetch Reading Mode Data when category changes or page changes
-  useEffect(() => {
-    if (activeCategory === 'reading-mode') {
-        fetchReadingModeData(readingPage);
-    }
-  }, [activeCategory, readingPage]);
-
   // Handle Tab Switch: Default to Current Month Expansion
   useEffect(() => {
     const currentMonth = getCurrentMonthKey();
     setExpandedAccordions(new Set([currentMonth]));
-  }, [currentAffairsTab, activeCategory]);
+  }, [currentAffairsTab, activeCategory, readingTab]);
 
   // Lock Body Scroll for Modals
   useEffect(() => {
@@ -286,77 +281,102 @@ const App: React.FC = () => {
 
   // --- Data Fetching ---
 
-  const fetchCurrentAffairs = async () => {
-      setLoadingCurrentAffairs(true);
+  const fetchData = async (source: 'daily' | 'topic', pageToFetch: number) => {
+      setLoadingMap(prev => ({ ...prev, [source]: true }));
+      
+      const tableName = source === 'daily' ? 'current_affairs' : 'topicwise';
+      const from = pageToFetch * BATCH_SIZE;
+      const to = from + BATCH_SIZE - 1;
+
       try {
           const { data, error } = await supabase
-              .from('current_affairs')
+              .from(tableName)
               .select('id, upload_date, questions')
-              .order('upload_date', { ascending: false });
+              .order('upload_date', { ascending: false })
+              .range(from, to);
           
           if (error) throw error;
 
-          if (data) {
+          if (data && data.length > 0) {
               const formatted = data.map((item: any) => ({
                   id: item.id,
                   upload_date: item.upload_date,
-                  questions: parseQuestions(item.questions)
+                  questions: parseQuestions(item.questions),
+                  source: source // Tag with source
               }));
-              setCurrentAffairsList(formatted);
+              
+              setAllEntries(prev => {
+                  const existingIds = new Set(prev.map(p => p.id));
+                  const newUnique = formatted.filter((f: any) => !existingIds.has(f.id));
+                  return [...prev, ...newUnique];
+              });
+              
+              if (data.length < BATCH_SIZE) {
+                  setHasMoreMap(prev => ({ ...prev, [source]: false }));
+              }
+          } else {
+              setHasMoreMap(prev => ({ ...prev, [source]: false }));
           }
+          
+          // Update Page Map on success
+          setPageMap(prev => ({ ...prev, [source]: pageToFetch }));
+
       } catch (error) {
-          console.error('Error fetching CA:', error);
+          console.error(`Error fetching ${source} data:`, error);
       } finally {
-          setLoadingCurrentAffairs(false);
+          setLoadingMap(prev => ({ ...prev, [source]: false }));
       }
   };
 
-  const fetchReadingModeData = async (page: number) => {
-    setLoadingReading(true);
-    const from = page * READING_PAGE_SIZE;
-    const to = from + READING_PAGE_SIZE - 1;
+  const handleLoadMore = () => {
+      let targetSource: 'daily' | 'topic' = 'daily';
+      
+      // Determine what we need to fetch based on active view
+      if (activeCategory === 'reading-mode') {
+          targetSource = readingTab === 'Topic Wise' ? 'topic' : 'daily';
+      } else {
+          targetSource = currentAffairsTab === 'Topic Wise' ? 'topic' : 'daily';
+      }
 
-    try {
-        const { data, error } = await supabase
-            .from('current_affairs')
-            .select('id, upload_date, questions')
-            .order('upload_date', { ascending: false })
-            .range(from, to);
-        
-        if (error) throw error;
-
-        if (data) {
-            const formatted = data.map((item: any) => ({
-                id: item.id,
-                upload_date: item.upload_date,
-                questions: parseQuestions(item.questions)
-            }));
-            setReadingItems(formatted);
-        }
-    } catch (error) {
-        console.error('Error fetching Reading Mode Data:', error);
-    } finally {
-        setLoadingReading(false);
-    }
+      const nextPage = pageMap[targetSource] + 1;
+      fetchData(targetSource, nextPage);
   };
 
-  // Helper to fetch a single entry for Deep Linking
+  // Helper to fetch a single entry for Deep Linking (Checks both tables)
   const fetchEntryById = async (id: string): Promise<CurrentAffairEntry | null> => {
       try {
-          const { data, error } = await supabase
+          // Try Daily Table
+          let { data, error } = await supabase
               .from('current_affairs')
               .select('id, upload_date, questions')
               .eq('id', id)
               .single();
           
-          if (error) throw error;
           if (data) {
               return {
                   id: data.id,
                   upload_date: data.upload_date,
-                  questions: parseQuestions(data.questions)
+                  questions: parseQuestions(data.questions),
+                  source: 'daily'
               };
           }
+
+          // Try Topic Table
+          ({ data, error } = await supabase
+              .from('topicwise')
+              .select('id, upload_date, questions')
+              .eq('id', id)
+              .single());
+
+          if (data) {
+              return {
+                  id: data.id,
+                  upload_date: data.upload_date,
+                  questions: parseQuestions(data.questions),
+                  source: 'topic'
+              };
+          }
+
       } catch (error) {
           console.error('Error fetching specific entry:', error);
       }
@@ -377,16 +397,19 @@ const App: React.FC = () => {
 
   // --- Aggregated Data Logic (Quiz Mode) ---
   
-  const getDailyGrouped = useMemo(() => {
-    if (currentAffairsTab === 'Weekly') return {};
+  const getGroupedData = useMemo(() => {
+    const activeTab = currentAffairsTab;
+    const targetSource = activeTab === 'Topic Wise' ? 'topic' : 'daily';
 
-    const filtered = currentAffairsList.filter(item => {
-        const title = item.questions?.title?.toLowerCase() || '';
-        return !title.includes('weekly') && !title.includes('monthly');
+    // Filter Logic based on SOURCE field
+    const filteredItems = allEntries.filter(item => {
+        // Fallback: if source is undefined, assume daily (legacy items)
+        const itemSource = item.source || 'daily';
+        return itemSource === targetSource;
     });
 
     const grouped: Record<string, CurrentAffairEntry[]> = {};
-    filtered.forEach(item => {
+    filteredItems.forEach(item => {
         if (!item.upload_date) return;
         const date = new Date(item.upload_date);
         if (isNaN(date.getTime())) return;
@@ -397,15 +420,13 @@ const App: React.FC = () => {
     });
 
     return grouped;
-  }, [currentAffairsList, currentAffairsTab]);
+  }, [allEntries, currentAffairsTab]);
 
   const getWeeklyAggregated = useMemo(() => {
     if (currentAffairsTab !== 'Weekly') return {};
 
-    const dailyItems = currentAffairsList.filter(item => {
-        const t = item.questions?.title?.toLowerCase() || '';
-        return !t.includes('weekly') && !t.includes('monthly');
-    });
+    // Use Daily items to generate weeks
+    const dailyItems = allEntries.filter(item => (item.source || 'daily') === 'daily');
 
     const groupedByMonth: Record<string, CurrentAffairEntry[]> = {};
     dailyItems.forEach(item => {
@@ -457,16 +478,14 @@ const App: React.FC = () => {
     });
 
     return weeklyData;
-  }, [currentAffairsList, currentAffairsTab]);
+  }, [allEntries, currentAffairsTab]);
 
-  const activeGroupedData = currentAffairsTab === 'Weekly' ? getWeeklyAggregated : getDailyGrouped;
+  const activeGroupedData = currentAffairsTab === 'Weekly' ? getWeeklyAggregated : getGroupedData;
   
-  // Filter out empty months (those with 0 content/questions)
   const sortedMonthKeys = Object.keys(activeGroupedData)
     .filter(monthKey => {
         const data = activeGroupedData[monthKey];
         if (!data) return false;
-        
         if (currentAffairsTab === 'Weekly') {
             return data.some((w: any) => w.questionCount > 0);
         }
@@ -504,6 +523,53 @@ const App: React.FC = () => {
       startQuiz(virtualEntry);
   };
 
+  // --- Reading Mode Logic ---
+  const readingItemsFiltered = useMemo(() => {
+     const targetSource = readingTab === 'Topic Wise' ? 'topic' : 'daily';
+     return allEntries.filter(item => (item.source || 'daily') === targetSource);
+  }, [allEntries, readingTab]);
+
+  const readingItemsSlice = useMemo(() => {
+      // NOTE: For reading view, we just show all loaded items for that category
+      // Pagination triggers DB fetch which appends to allEntries
+      // We limit client rendering to pages for performance, but logic matches DB chunks
+      
+      // Since fetching appends to a shared list, we should simply show the filtered list
+      // But we use readingUiPage for client side pagination to avoid massive DOM
+      const start = readingUiPage * BATCH_SIZE;
+      const end = start + BATCH_SIZE;
+      return readingItemsFiltered.slice(start, end);
+  }, [readingItemsFiltered, readingUiPage]);
+
+  // Reset UI page when tab changes
+  useEffect(() => {
+     setReadingUiPage(0);
+  }, [readingTab]);
+
+  const handleReadingNext = () => {
+      const nextPage = readingUiPage + 1;
+      const requiredDataCount = (nextPage + 1) * BATCH_SIZE;
+      
+      // If we need more data than we have loaded in the filtered list
+      const currentCount = readingItemsFiltered.length;
+      
+      if (requiredDataCount > currentCount) {
+           const targetSource = readingTab === 'Topic Wise' ? 'topic' : 'daily';
+           if (hasMoreMap[targetSource]) {
+              handleLoadMore();
+           }
+      }
+      setReadingUiPage(nextPage);
+  };
+  
+  const isCurrentLoading = activeCategory === 'reading-mode' 
+      ? loadingMap[readingTab === 'Topic Wise' ? 'topic' : 'daily']
+      : loadingMap[currentAffairsTab === 'Topic Wise' ? 'topic' : 'daily'];
+
+  const hasMoreCurrent = activeCategory === 'reading-mode'
+      ? hasMoreMap[readingTab === 'Topic Wise' ? 'topic' : 'daily']
+      : hasMoreMap[currentAffairsTab === 'Topic Wise' ? 'topic' : 'daily'];
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
       <Header />
@@ -526,12 +592,12 @@ const App: React.FC = () => {
         {activeCategory === 'current-affairs' && (
           <div className="animate-in fade-in duration-300 space-y-4">
             {/* Tabs */}
-            <div className="flex p-1 bg-white rounded-xl border border-gray-200 shadow-sm">
-              {(['Daily', 'Weekly'] as const).map((tab) => (
+            <div className="flex p-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+              {(['Daily', 'Weekly', 'Topic Wise'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setCurrentAffairsTab(tab)}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                  className={`flex-1 min-w-[80px] py-2 text-sm font-bold rounded-lg transition-all whitespace-nowrap ${
                     currentAffairsTab === tab 
                       ? 'bg-blue-100 text-blue-800 shadow-sm' 
                       : 'text-gray-500 hover:bg-gray-50'
@@ -543,15 +609,19 @@ const App: React.FC = () => {
             </div>
 
             {/* List Content */}
-            {loadingCurrentAffairs ? (
+            {activeGroupedData && Object.keys(activeGroupedData).length === 0 && isCurrentLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-blue-600">
                     <Loader2 className="w-8 h-8 animate-spin mb-2" />
                     <span className="text-sm font-medium">Loading updates...</span>
                 </div>
-            ) : sortedMonthKeys.length === 0 ? (
+            ) : sortedMonthKeys.length === 0 && !isCurrentLoading ? (
                 <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 border-dashed">
-                    <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">No updates found for this category.</p>
+                    {currentAffairsTab === 'Topic Wise' ? (
+                        <Layers className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    ) : (
+                        <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    )}
+                    <p className="text-gray-500 font-medium">No {currentAffairsTab.toLowerCase()} content found.</p>
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -644,7 +714,7 @@ const App: React.FC = () => {
                             );
                         }
 
-                        // Handle Daily Render
+                        // Handle Daily / Topic Wise Render
                         const items = activeGroupedData[month] || [];
                         return (
                             <div key={month} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-300">
@@ -654,7 +724,7 @@ const App: React.FC = () => {
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`p-2 rounded-lg ${isExpanded ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                                            <Calendar className="w-5 h-5" />
+                                            {currentAffairsTab === 'Topic Wise' ? <Layers className="w-5 h-5"/> : <Calendar className="w-5 h-5" />}
                                         </div>
                                         <div className="text-left">
                                             <span className={`block font-bold text-base ${isExpanded ? 'text-blue-900' : 'text-gray-800'}`}>{month}</span>
@@ -667,7 +737,7 @@ const App: React.FC = () => {
                                     <div className="border-t border-gray-100 divide-y divide-gray-50 bg-white">
                                         {items.map((entry: CurrentAffairEntry) => {
                                             const result = quizResults[entry.id];
-                                            const displayTitle = "Daily Current Affairs";
+                                            const displayTitle = entry.questions?.title || "Daily Current Affairs";
                                             const questionCount = entry.questions?.questions?.length || 0;
                                             const isResumable = savedProgressIds.has(entry.id);
 
@@ -723,6 +793,27 @@ const App: React.FC = () => {
                             </div>
                         );
                     })}
+                    
+                    {/* Load More Button for Quiz List */}
+                    {hasMoreCurrent && (
+                        <div className="pt-2 text-center">
+                            <button 
+                                onClick={handleLoadMore}
+                                disabled={isCurrentLoading}
+                                className="inline-flex items-center px-6 py-3 bg-white border border-gray-200 shadow-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors disabled:opacity-50"
+                            >
+                                {isCurrentLoading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...
+                                    </>
+                                ) : (
+                                    <>
+                                        Load Older Quizzes <DownloadCloud className="w-4 h-4 ml-2" />
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
           </div>
@@ -735,28 +826,50 @@ const App: React.FC = () => {
                     <h2 className="text-lg font-bold text-gray-800">Recent Current Affairs</h2>
                 </div>
 
-                {loadingReading ? (
+                {/* Reading Mode Tabs */}
+                <div className="flex p-1 bg-white rounded-xl border border-gray-200 shadow-sm mb-4">
+                  {(['Daily', 'Topic Wise'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setReadingTab(tab)}
+                      className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                        readingTab === tab 
+                          ? 'bg-emerald-100 text-emerald-800 shadow-sm' 
+                          : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {readingItemsFiltered.length === 0 && isCurrentLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-emerald-600">
                         <Loader2 className="w-8 h-8 animate-spin mb-2" />
                         <span className="text-sm font-medium">Loading reading material...</span>
                     </div>
-                ) : readingItems.length === 0 ? (
+                ) : readingItemsSlice.length === 0 ? (
                     <div className="text-center py-10 bg-white rounded-xl border border-gray-200 border-dashed">
-                        <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                        <p className="text-gray-500 text-sm">No updates available to read.</p>
+                        {readingTab === 'Topic Wise' ? (
+                             <Layers className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        ) : (
+                             <BookOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        )}
+                        <p className="text-gray-500 text-sm">No {readingTab.toLowerCase()} content available.</p>
+                        {hasMoreCurrent && (
+                             <button onClick={handleLoadMore} className="mt-2 text-sm text-emerald-600 font-bold hover:underline">
+                                 Try loading items
+                             </button>
+                        )}
                     </div>
                 ) : (
                     <>
                     <div className="grid grid-cols-1 gap-3">
-                        {readingItems
-                            .filter(item => {
-                                const title = item.questions?.title?.toLowerCase() || '';
-                                return !title.includes('weekly') && !title.includes('monthly');
-                            })
-                            .map(entry => {
+                        {readingItemsSlice.map(entry => {
                             const questionCount = entry.questions?.questions?.length || 0;
                             const displayDate = new Date(entry.upload_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-                            const displayTitle = `Daily Current Affairs ${displayDate}`;
+                            // Use title from DB or fallback
+                            const displayTitle = entry.questions?.title || `Daily Current Affairs ${displayDate}`;
 
                             return (
                                 <article 
@@ -767,14 +880,14 @@ const App: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 flex-shrink-0 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                                                <BookOpen className="w-5 h-5" />
+                                                {readingTab === 'Topic Wise' ? <Layers className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
                                             </div>
                                             <div>
-                                                <h3 className="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">
+                                                <h3 className="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-1">
                                                     {displayTitle}
                                                 </h3>
                                                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                                    {questionCount} Questions • Read Now
+                                                    {questionCount} Questions • {displayDate}
                                                 </p>
                                             </div>
                                         </div>
@@ -788,19 +901,19 @@ const App: React.FC = () => {
                     {/* Pagination Controls */}
                     <div className="flex items-center justify-between mt-6 px-2">
                         <button 
-                            onClick={() => setReadingPage(p => Math.max(0, p - 1))}
-                            disabled={readingPage === 0}
+                            onClick={() => setReadingUiPage(p => Math.max(0, p - 1))}
+                            disabled={readingUiPage === 0}
                             className="flex items-center px-4 py-2 text-sm font-bold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                         >
                             <ChevronLeft className="w-4 h-4 mr-2" /> Previous
                         </button>
-                        <span className="text-sm font-bold text-gray-500">Page {readingPage + 1}</span>
+                        <span className="text-sm font-bold text-gray-500">Page {readingUiPage + 1}</span>
                         <button 
-                            onClick={() => setReadingPage(p => p + 1)}
-                            disabled={readingItems.length < READING_PAGE_SIZE}
+                            onClick={handleReadingNext}
+                            disabled={!hasMoreCurrent && readingUiPage * BATCH_SIZE + BATCH_SIZE >= readingItemsFiltered.length}
                             className="flex items-center px-4 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm shadow-emerald-200"
                         >
-                            Next <ChevronRight className="w-4 h-4 ml-2" />
+                            {(isCurrentLoading) ? 'Loading...' : 'Next'} <ChevronRight className="w-4 h-4 ml-2" />
                         </button>
                     </div>
                     </>
