@@ -26,7 +26,8 @@ const App: React.FC = () => {
   const [pageMap, setPageMap] = useState({ daily: 0, topic: 0 });
   const [hasMoreMap, setHasMoreMap] = useState({ daily: true, topic: true });
   const [loadingMap, setLoadingMap] = useState({ daily: false, topic: false });
-  const [loadingAction, setLoadingAction] = useState(false); // Global loading for fetch-on-click
+  const [loadingAction, setLoadingAction] = useState(false); // Global loading for Quiz
+  const [isReadingLoading, setIsReadingLoading] = useState(false); // Specific loading for Reading Skeleton
   
   const BATCH_SIZE = 7; 
 
@@ -163,9 +164,19 @@ const App: React.FC = () => {
     const deepLinkId = params.get('id') || params.get('readingId');
     if (deepLinkId && deepLinkId.length > 5) {
         setActiveCategory('reading-mode');
-        // Fetch full entry for deep link
+        // For deep links, we fetch with skeleton effect
+        setIsReadingLoading(true);
+        // Temporary placeholder entry while fetching
+        const tempEntry: CurrentAffairEntry = { 
+            id: deepLinkId, 
+            upload_date: new Date().toISOString(), 
+            questions: { title: 'Loading...', description: '', questions: [] } 
+        };
+        setActiveReadingEntry(tempEntry);
+        
         fetchEntryById(deepLinkId).then(entry => {
             if (entry) setActiveReadingEntry(entry);
+            setIsReadingLoading(false);
         });
     }
   }, []);
@@ -189,7 +200,7 @@ const App: React.FC = () => {
     if (isModalOpen) {
         const currentPath = window.location.pathname;
         const newParams = new URLSearchParams(window.location.search);
-        if (activeReadingEntry) {
+        if (activeReadingEntry && !isReadingLoading) {
             const qData = activeReadingEntry.questions;
             let firstQuestion = "daily-current-affairs";
             if (qData && qData.questions && Array.isArray(qData.questions) && qData.questions.length > 0) {
@@ -220,7 +231,7 @@ const App: React.FC = () => {
              window.history.replaceState(null, '', window.location.pathname);
         }
     }
-  }, [activeQuiz, selectedPost, activeReadingEntry, infoPage]);
+  }, [activeQuiz, selectedPost, activeReadingEntry, infoPage, isReadingLoading]);
 
   useEffect(() => {
     const currentMonth = getCurrentMonthKey();
@@ -246,10 +257,14 @@ const App: React.FC = () => {
       const tableName = source === 'daily' ? 'current_affairs' : 'topicwise';
       const from = pageToFetch * BATCH_SIZE;
       const to = from + BATCH_SIZE - 1;
+      
+      // Minimal fetch for list view
+      const selectFields = source === 'daily' ? 'id, upload_date' : 'id, upload_date, questions';
+
       try {
           const { data, error } = await supabase
               .from(tableName)
-              .select('id, upload_date, questions')
+              .select(selectFields)
               .order('upload_date', { ascending: false })
               .range(from, to);
           if (error) throw error;
@@ -257,6 +272,7 @@ const App: React.FC = () => {
               const formatted = data.map((item: any) => ({
                   id: item.id,
                   upload_date: item.upload_date,
+                  // If questions field is missing, parseQuestions returns empty
                   questions: parseQuestions(item.questions),
                   source: source
               }));
@@ -367,7 +383,7 @@ const App: React.FC = () => {
     const dailyItems = allEntries.filter(item => (item.source || 'daily') === 'daily');
     const groupedByMonth: Record<string, CurrentAffairEntry[]> = {};
     
-    // Group loaded items by month to check presence, though counts might be partial
+    // Group loaded items by month
     dailyItems.forEach(item => {
         if (!item.upload_date) return;
         const date = new Date(item.upload_date);
@@ -394,7 +410,6 @@ const App: React.FC = () => {
             weekEndDate.setHours(23, 59, 59, 999);
             const isLocked = today < weekEndDate;
             
-            // Note: Counts here are based on currently loaded data only
             let aggregatedCount = 0;
             monthItems.forEach(item => {
                 const itemDate = new Date(item.upload_date);
@@ -407,8 +422,8 @@ const App: React.FC = () => {
             return {
                 ...range,
                 id: `weekly-${monthKey.replace(/\s/g, '-')}-wk${range.id}`,
-                questions: [], // We don't preload questions anymore
-                questionCount: aggregatedCount, // Partial count from loaded data
+                questions: [], 
+                questionCount: aggregatedCount, 
                 isLocked,
                 displayDate: range.label
             };
@@ -435,7 +450,7 @@ const App: React.FC = () => {
   const startQuiz = async (entry: CurrentAffairEntry, isPreLoaded = false) => {
       let entryToUse = entry;
       
-      // Fetch full content if it wasn't preloaded (e.g. Weekly) or if we want to ensure freshness/completeness
+      // Fetch full content if it wasn't preloaded
       if (!isPreLoaded) {
            setLoadingAction(true);
            try {
@@ -443,7 +458,6 @@ const App: React.FC = () => {
                if (fullData) {
                    entryToUse = fullData;
                } else {
-                   // If fetch fails, we might fall back to existing entry if it has questions, otherwise abort
                    if (!entry.questions?.questions?.length) {
                        alert("Content unavailable. Please check your connection.");
                        setLoadingAction(false);
@@ -484,7 +498,6 @@ const App: React.FC = () => {
               source: 'daily'
           };
           
-          // Pass true to skip the fetchEntryById check since we just constructed it
           startQuiz(virtualEntry, true);
       } finally {
           setLoadingAction(false);
@@ -492,17 +505,25 @@ const App: React.FC = () => {
   };
 
   const handleReadingClick = async (entry: CurrentAffairEntry) => {
-      setLoadingAction(true);
+      // 1. Immediately open interface with existing (partial) entry
+      setActiveReadingEntry(entry);
+      setIsReadingLoading(true);
+
       try {
+          // 2. Fetch full content in background
           const fullData = await fetchEntryById(entry.id);
           if (fullData) {
               setActiveReadingEntry(fullData);
           } else {
-              // Fallback if fetch fails but we have some data
-               if (entry.questions?.questions?.length) setActiveReadingEntry(entry);
+               // If fetch fails but we somehow have questions in partial (rare), keep it.
+               if (!entry.questions?.questions?.length) {
+                 // Could show error here if needed, but we leave the skeleton or empty state
+               }
           }
+      } catch (e) {
+          console.error(e);
       } finally {
-          setLoadingAction(false);
+          setIsReadingLoading(false);
       }
   };
 
@@ -534,7 +555,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900 relative">
-      {/* Global Loading Overlay */}
+      {/* Global Loading Overlay (Only for Actions like Quiz start, NOT reading click) */}
       {loadingAction && (
           <div className="fixed inset-0 z-[1500] bg-black/20 backdrop-blur-sm flex items-center justify-center">
               <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center animate-in zoom-in-95 duration-200">
@@ -592,10 +613,10 @@ const App: React.FC = () => {
                                                     <div key={week.id} className="px-3 py-3 flex flex-row items-center justify-between gap-2 hover:bg-gray-50 transition-colors">
                                                         <div className="min-w-0 flex-1">
                                                             <h3 className={`text-sm font-bold mb-1 truncate ${week.isLocked ? 'text-gray-400' : 'text-gray-900'}`}>{week.label}</h3>
-                                                            {/* Only show Question count if we have data, otherwise just show label */}
+                                                            {/* Only show Question count if we have data, otherwise show generic */}
                                                             <p className="text-xs text-gray-500 font-medium flex items-center truncate">
                                                                 <Clock className="w-3 h-3 mr-1 shrink-0" />
-                                                                {week.isLocked ? "Available after week ends" : "Weekly Compilation"}
+                                                                {week.isLocked ? "Available after week ends" : (week.questionCount > 0 ? `${week.questionCount} Questions` : "Weekly Compilation")}
                                                             </p>
                                                         </div>
                                                         <div className="shrink-0 flex items-center gap-2">
@@ -630,12 +651,12 @@ const App: React.FC = () => {
                                         {items.map((entry: CurrentAffairEntry) => {
                                             const result = quizResults[entry.id];
                                             const isResumable = savedProgressIds.has(entry.id);
+                                            const qCount = entry.questions?.questions?.length || 0;
                                             return (
                                                 <div key={entry.id} className="px-3 py-3 flex flex-row items-center justify-between gap-2 hover:bg-gray-50 transition-colors">
                                                     <div className="min-w-0 flex-1">
                                                         <h3 className="text-sm font-bold text-gray-900 mb-1 truncate">{entry.questions?.title || "Daily Current Affairs"}</h3>
                                                         <p className="text-xs text-gray-500 font-medium flex items-center truncate">
-                                                            {/* Hide date if Topic Wise */}
                                                             {currentAffairsTab !== 'Topic Wise' && (
                                                                 <>
                                                                     <Clock className="w-3 h-3 mr-1 shrink-0" />
@@ -643,7 +664,7 @@ const App: React.FC = () => {
                                                                     <span className="mx-2 text-gray-300">•</span>
                                                                 </>
                                                             )}
-                                                            <span>{entry.questions?.questions?.length || 0} Questions</span>
+                                                            {qCount > 0 ? <span>{qCount} Questions</span> : <span>Click to Load</span>}
                                                         </p>
                                                     </div>
                                                     <div className="shrink-0 flex items-center gap-2">
@@ -693,6 +714,7 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 gap-3">
                         {readingItemsSlice.map(entry => {
                             const displayDate = new Date(entry.upload_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                            const qCount = entry.questions?.questions?.length || 0;
                             return (
                                 <article key={entry.id} onClick={() => handleReadingClick(entry)} className="group flex flex-col p-4 rounded-xl border border-gray-100 bg-white hover:border-emerald-200 hover:shadow-md transition-all duration-200 cursor-pointer">
                                     <div className="flex items-center justify-between">
@@ -701,7 +723,9 @@ const App: React.FC = () => {
                                             <div>
                                                 <h3 className="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-1">{entry.questions?.title || `Daily Current Affairs ${displayDate}`}</h3>
                                                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                                    {entry.questions?.questions?.length || 0} Questions
+                                                    {/* Hide question count if 0 (lazy loaded) */}
+                                                    {qCount > 0 ? `${qCount} Questions` : 'Click to Read'}
+                                                    {/* Hide date if Topic Wise */}
                                                     {readingTab !== 'Topic Wise' && ` • ${displayDate}`}
                                                 </p>
                                             </div>
@@ -724,7 +748,7 @@ const App: React.FC = () => {
       </main>
       <Footer onOpenTerms={() => setInfoPage('terms')} onOpenContact={() => setInfoPage('contact')} />
       {activeQuiz && <TestInterface entry={activeQuiz.entry} mode={activeQuiz.mode} initialProgress={activeQuiz.initialProgress} existingResult={quizResults[activeQuiz.entry.id]} onExit={() => setActiveQuiz(null)} onComplete={handleQuizComplete} />}
-      {activeReadingEntry && <ReadingInterface entry={activeReadingEntry} onBack={() => setActiveReadingEntry(null)} />}
+      {activeReadingEntry && <ReadingInterface entry={activeReadingEntry} isLoading={isReadingLoading} onBack={() => setActiveReadingEntry(null)} />}
       {infoPage && <InfoPage type={infoPage} onClose={() => setInfoPage(null)} />}
     </div>
   );

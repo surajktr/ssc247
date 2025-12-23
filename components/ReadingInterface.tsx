@@ -1,13 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Languages, BookOpen, AlertCircle } from 'lucide-react';
 import { CurrentAffairEntry } from '../types';
 
 interface ReadingInterfaceProps {
   entry: CurrentAffairEntry;
+  isLoading?: boolean;
   onBack: () => void;
 }
 
-export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBack }) => {
+export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, isLoading = false, onBack }) => {
   const [lang, setLang] = useState<'en' | 'hi'>('en');
   
   // Robustly extract questions array
@@ -16,6 +18,7 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
 
   // --- SEO Logic ---
   useEffect(() => {
+    if (isLoading) return;
     try {
         // 1. Update Document Title
         const originalTitle = document.title;
@@ -32,7 +35,7 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
         
         // Use optional chaining carefully
         const firstQuestion = questions[0]?.question_en || "Daily Current Affairs Questions and Answers";
-        // Sanitize text for meta tag (remove markdown etc if needed, simplified here)
+        // Sanitize text for meta tag
         const cleanDesc = String(firstQuestion).replace(/\*\*/g, '').substring(0, 150);
         metaDescription.setAttribute('content', `Read: ${cleanDesc}... and more.`);
 
@@ -71,7 +74,7 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
     } catch (e) {
         console.error("SEO Effect Error", e);
     }
-  }, [entry, questions]); // Re-run if entry changes
+  }, [entry, questions, isLoading]);
 
   const renderFormattedText = (text: any) => {
     if (!text) return null;
@@ -88,6 +91,42 @@ export const ReadingInterface: React.FC<ReadingInterfaceProps> = ({ entry, onBac
         return <span>{stringText}</span>;
     }
   };
+
+  // --- Skeleton Loading UI ---
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-[1200] bg-white flex flex-col animate-in slide-in-from-right duration-300">
+        <header className="shrink-0 bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+            <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div className="h-5 w-48 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+            </div>
+        </header>
+        <div className="flex-1 overflow-y-auto bg-white p-4">
+            <div className="max-w-3xl mx-auto space-y-8">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="py-4 space-y-4">
+                        <div className="flex gap-2">
+                             <div className="w-6 h-6 bg-gray-200 rounded animate-pulse shrink-0"></div>
+                             <div className="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                        <div className="ml-8 h-4 w-1/4 bg-gray-200 rounded animate-pulse"></div>
+                        <div className="ml-8 space-y-2 pt-2">
+                             <div className="h-3 w-full bg-gray-100 rounded animate-pulse"></div>
+                             <div className="h-3 w-full bg-gray-100 rounded animate-pulse"></div>
+                             <div className="h-3 w-2/3 bg-gray-100 rounded animate-pulse"></div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[1200] bg-white flex flex-col animate-in slide-in-from-right duration-300">
