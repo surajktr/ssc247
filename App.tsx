@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Header from './components/Header';
 import CategoryCard from './components/CategoryCard';
@@ -29,6 +28,11 @@ const App: React.FC = () => {
   const [loadingAction, setLoadingAction] = useState(false); // Global loading for Quiz
   const [isReadingLoading, setIsReadingLoading] = useState(false); // Specific loading for Reading Skeleton
   
+  // State: Month Management (Weekly Tab)
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set());
+  const [monthLoadingMap, setMonthLoadingMap] = useState<Record<string, boolean>>({});
+
   const BATCH_SIZE = 7; 
 
   // State: Tabs
@@ -159,6 +163,7 @@ const App: React.FC = () => {
     }
     refreshSavedProgress();
     fetchData('daily', 0);
+    initAvailableMonths();
 
     const params = new URLSearchParams(window.location.search);
     const deepLinkId = params.get('id') || params.get('readingId');
@@ -258,8 +263,8 @@ const App: React.FC = () => {
       const from = pageToFetch * BATCH_SIZE;
       const to = from + BATCH_SIZE - 1;
       
-      // Minimal fetch for list view
-      const selectFields = source === 'daily' ? 'id, upload_date' : 'id, upload_date, questions';
+      // Always fetch questions to display counts immediately
+      const selectFields = 'id, upload_date, questions';
 
       try {
           const { data, error } = await supabase
@@ -272,7 +277,6 @@ const App: React.FC = () => {
               const formatted = data.map((item: any) => ({
                   id: item.id,
                   upload_date: item.upload_date,
-                  // If questions field is missing, parseQuestions returns empty
                   questions: parseQuestions(item.questions),
                   source: source
               }));
@@ -293,6 +297,71 @@ const App: React.FC = () => {
       } finally {
           setLoadingMap(prev => ({ ...prev, [source]: false }));
       }
+  };
+
+  // Initialize available months list and auto-load current month
+  const initAvailableMonths = async () => {
+    try {
+        const { data, error } = await supabase.from('current_affairs').select('upload_date').order('upload_date', { ascending: false });
+        if (error) throw error;
+        if (data) {
+            const uniqueMonths = Array.from(new Set((data as any[]).map(d => 
+                new Date(d.upload_date).toLocaleString('default', { month: 'long', year: 'numeric' })
+            )));
+            setAvailableMonths(uniqueMonths);
+            
+            // Auto-load current month (first in list)
+            if (uniqueMonths.length > 0) {
+                fetchMonthData(uniqueMonths[0]);
+            }
+        }
+    } catch (e) {
+        console.error("Error fetching available months", e);
+    }
+  };
+
+  const fetchMonthData = async (monthKey: string) => {
+    if (loadedMonths.has(monthKey)) return;
+    
+    setMonthLoadingMap(prev => ({ ...prev, [monthKey]: true }));
+    
+    try {
+        const monthDate = new Date(Date.parse(`1 ${monthKey}`));
+        if (isNaN(monthDate.getTime())) return;
+
+        const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+        const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const { data, error } = await supabase
+            .from('current_affairs')
+            .select('id, upload_date, questions')
+            .gte('upload_date', start.toISOString())
+            .lte('upload_date', end.toISOString())
+            .order('upload_date', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            const formatted = data.map((item: any) => ({
+                id: item.id,
+                upload_date: item.upload_date,
+                questions: parseQuestions(item.questions),
+                source: 'daily'
+            }));
+            
+            setAllEntries(prev => {
+                const existingIds = new Set(prev.map(p => p.id));
+                const newUnique = formatted.filter((f: any) => !existingIds.has(f.id));
+                // We append but sorting handles the display
+                return [...prev, ...newUnique];
+            });
+            setLoadedMonths(prev => new Set(prev).add(monthKey));
+        }
+    } catch (e) {
+        console.error(`Error loading month ${monthKey}`, e);
+    } finally {
+        setMonthLoadingMap(prev => ({ ...prev, [monthKey]: false }));
+    }
   };
 
   const handleLoadMore = () => {
@@ -358,7 +427,15 @@ const App: React.FC = () => {
 
   const toggleAccordion = (key: string) => {
     const newSet = new Set(expandedAccordions);
-    if (newSet.has(key)) newSet.delete(key); else newSet.add(key);
+    if (newSet.has(key)) {
+        newSet.delete(key); 
+    } else {
+        newSet.add(key);
+        // If in Weekly CA Quiz, ensure we have full data for this month
+        if (activeCategory === 'current-affairs' && currentAffairsTab === 'Weekly') {
+            fetchMonthData(key);
+        }
+    }
     setExpandedAccordions(newSet);
   };
 
@@ -366,6 +443,10 @@ const App: React.FC = () => {
     const activeTab = currentAffairsTab;
     const targetSource = activeTab === 'Topic Wise' ? 'topic' : 'daily';
     const filteredItems = allEntries.filter(item => (item.source || 'daily') === targetSource);
+    
+    // Sort items to ensure correct display order
+    filteredItems.sort((a, b) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime());
+
     const grouped: Record<string, CurrentAffairEntry[]> = {};
     filteredItems.forEach(item => {
         if (!item.upload_date) return;
@@ -396,8 +477,8 @@ const App: React.FC = () => {
     const weeklyData: Record<string, any[]> = {};
     const today = new Date();
     
-    // Use allEntries months OR current month if empty to ensure structure exists
-    const months = Object.keys(groupedByMonth).length > 0 ? Object.keys(groupedByMonth) : [getCurrentMonthKey()];
+    // Use all available months if populated (from fetch), otherwise fallback to loaded data keys
+    const months = availableMonths.length > 0 ? availableMonths : (Object.keys(groupedByMonth).length > 0 ? Object.keys(groupedByMonth) : [getCurrentMonthKey()]);
 
     months.forEach(monthKey => {
         const monthItems = groupedByMonth[monthKey] || [];
@@ -431,7 +512,7 @@ const App: React.FC = () => {
         weeklyData[monthKey] = weeks;
     });
     return weeklyData;
-  }, [allEntries, currentAffairsTab]);
+  }, [allEntries, currentAffairsTab, availableMonths]);
 
   const activeGroupedData = currentAffairsTab === 'Weekly' ? getWeeklyAggregated : getGroupedData;
   const sortedMonthKeys = Object.keys(activeGroupedData)
@@ -505,20 +586,19 @@ const App: React.FC = () => {
   };
 
   const handleReadingClick = async (entry: CurrentAffairEntry) => {
-      // 1. Immediately open interface with existing (partial) entry
+      // 1. Immediately open interface with existing entry
       setActiveReadingEntry(entry);
-      setIsReadingLoading(true);
+      
+      // Only show skeleton if content is missing (e.g. partial fetch from deep link)
+      // Otherwise, assume data is fresh enough from main list fetch
+      const hasContent = entry.questions?.questions?.length > 0;
+      setIsReadingLoading(!hasContent);
 
       try {
-          // 2. Fetch full content in background
+          // 2. Fetch full content in background to ensure freshness or get complete details
           const fullData = await fetchEntryById(entry.id);
           if (fullData) {
               setActiveReadingEntry(fullData);
-          } else {
-               // If fetch fails but we somehow have questions in partial (rare), keep it.
-               if (!entry.questions?.questions?.length) {
-                 // Could show error here if needed, but we leave the skeleton or empty state
-               }
           }
       } catch (e) {
           console.error(e);
@@ -529,7 +609,9 @@ const App: React.FC = () => {
 
   const readingItemsFiltered = useMemo(() => {
      const targetSource = readingTab === 'Topic Wise' ? 'topic' : 'daily';
-     return allEntries.filter(item => (item.source || 'daily') === targetSource);
+     const items = allEntries.filter(item => (item.source || 'daily') === targetSource);
+     // Ensure sorting by date desc
+     return items.sort((a, b) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime());
   }, [allEntries, readingTab]);
 
   const readingItemsSlice = useMemo(() => {
@@ -593,6 +675,8 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                     {sortedMonthKeys.map(month => {
                         const isExpanded = expandedAccordions.has(month);
+                        const isLoadingThisMonth = monthLoadingMap[month];
+                        
                         if (currentAffairsTab === 'Weekly') {
                             const weeks = activeGroupedData[month] || [];
                             return (
@@ -602,11 +686,16 @@ const App: React.FC = () => {
                                             <div className={`p-2 rounded-lg ${isExpanded ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}><Calendar className="w-5 h-5" /></div>
                                             <span className={`block font-bold text-base ${isExpanded ? 'text-blue-900' : 'text-gray-800'}`}>{month}</span>
                                         </div>
-                                        {isExpanded ? <ChevronUp className="w-5 h-5 text-blue-600" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                                        {isLoadingThisMonth ? <Loader2 className="w-5 h-5 text-blue-600 animate-spin" /> : (isExpanded ? <ChevronUp className="w-5 h-5 text-blue-600" /> : <ChevronDown className="w-5 h-5 text-gray-400" />)}
                                     </button>
                                     {isExpanded && (
                                         <div className="border-t border-gray-100 divide-y divide-gray-50 bg-white">
-                                            {weeks.map((week: any) => {
+                                            {isLoadingThisMonth ? (
+                                                <div className="p-4 text-center text-sm text-gray-500 flex flex-col items-center">
+                                                    <Loader2 className="w-6 h-6 animate-spin mb-2 text-blue-500" />
+                                                    Fetching full month data...
+                                                </div>
+                                            ) : weeks.map((week: any) => {
                                                 const result = quizResults[week.id];
                                                 const isResumable = savedProgressIds.has(week.id);
                                                 return (
@@ -616,7 +705,7 @@ const App: React.FC = () => {
                                                             {/* Only show Question count if we have data, otherwise show generic */}
                                                             <p className="text-xs text-gray-500 font-medium flex items-center truncate">
                                                                 <Clock className="w-3 h-3 mr-1 shrink-0" />
-                                                                {week.isLocked ? "Available after week ends" : (week.questionCount > 0 ? `${week.questionCount} Questions` : "Weekly Compilation")}
+                                                                {week.isLocked ? "Available after week ends" : `${week.questionCount || 0} Questions`}
                                                             </p>
                                                         </div>
                                                         <div className="shrink-0 flex items-center gap-2">
@@ -664,7 +753,7 @@ const App: React.FC = () => {
                                                                     <span className="mx-2 text-gray-300">•</span>
                                                                 </>
                                                             )}
-                                                            {qCount > 0 ? <span>{qCount} Questions</span> : <span>Click to Load</span>}
+                                                            <span>{qCount} Questions</span>
                                                         </p>
                                                     </div>
                                                     <div className="shrink-0 flex items-center gap-2">
@@ -682,7 +771,9 @@ const App: React.FC = () => {
                             </div>
                         );
                     })}
-                    {hasMoreCurrent && (
+                    
+                    {/* Only show load more if NOT in Weekly tab */}
+                    {hasMoreCurrent && currentAffairsTab !== 'Weekly' && (
                         <div className="pt-2 text-center">
                             <button onClick={handleLoadMore} disabled={isCurrentLoading} className="inline-flex items-center px-6 py-3 bg-white border border-gray-200 shadow-sm rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors disabled:opacity-50">{isCurrentLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Loading...</> : <>Load Older Quizzes <DownloadCloud className="w-4 h-4 ml-2" /></>}</button>
                         </div>
@@ -723,8 +814,7 @@ const App: React.FC = () => {
                                             <div>
                                                 <h3 className="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-1">{entry.questions?.title || `Daily Current Affairs ${displayDate}`}</h3>
                                                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                                    {/* Hide question count if 0 (lazy loaded) */}
-                                                    {qCount > 0 ? `${qCount} Questions` : 'Click to Read'}
+                                                    {qCount} Questions
                                                     {/* Hide date if Topic Wise */}
                                                     {readingTab !== 'Topic Wise' && ` • ${displayDate}`}
                                                 </p>
