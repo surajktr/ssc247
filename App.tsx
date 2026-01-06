@@ -141,12 +141,70 @@ const App: React.FC = () => {
               return { title: '', description: '', questions: [] }; 
           }
       }
-      if (Array.isArray(parsed)) {
-          return { title: 'Daily Current Affairs', description: '', questions: parsed };
+
+      // Helper to normalize options and answer
+      const normalizeQuestion = (item: any) => {
+          let normalized = { ...item };
+
+          // Hide scripts
+          delete normalized.question_script;
+          delete normalized.extra_details_speech_script;
+
+          // If options is string[] (new format)
+          if (Array.isArray(item.options) && typeof item.options[0] === 'string') {
+              const newOptions = item.options.map((opt: string, idx: number) => ({
+                  label: String.fromCharCode(65 + idx), // A, B, C...
+                  text_en: opt,
+                  text_hi: opt // Fallback for Hindi as new format usually provides English options in the array
+              }));
+              
+              // Find answer label by text matching
+              let answerLabel = item.answer;
+              if (item.answer) {
+                  // Some answers might be exact strings from options
+                  const matchingOpt = newOptions.find((o: any) => o.text_en.toLowerCase() === String(item.answer).toLowerCase());
+                  if (matchingOpt) {
+                      answerLabel = matchingOpt.label;
+                  }
+              }
+
+              normalized.options = newOptions;
+              normalized.answer = answerLabel;
+          }
+          
+          // Ensure Hindi explanation has fallback if extra_details exists
+          if (!normalized.explanation_hi && normalized.extra_details) {
+              normalized.explanation_hi = normalized.extra_details;
+          }
+
+          return normalized;
+      };
+
+      // Scenario 1: New JSON format { date: "...", data: [...] }
+      if (parsed.data && Array.isArray(parsed.data)) {
+          const questions = parsed.data.map(normalizeQuestion);
+          const titleDate = parsed.date || '';
+          const title = titleDate ? `Daily Current Affairs - ${titleDate}` : 'Daily Current Affairs';
+          
+          return { 
+              title: title, 
+              description: '', 
+              questions: questions 
+          };
       }
+
+      // Scenario 2: Simple Array (Legacy)
+      if (Array.isArray(parsed)) {
+          return { title: 'Daily Current Affairs', description: '', questions: parsed.map(normalizeQuestion) };
+      }
+
+      // Scenario 3: Object with questions array (Legacy Standard)
       if (parsed && typeof parsed === 'object') {
           if (Array.isArray(parsed.questions)) {
-              return parsed;
+              return {
+                  ...parsed,
+                  questions: parsed.questions.map(normalizeQuestion)
+              };
           }
           return { ...parsed, questions: [] };
       }
