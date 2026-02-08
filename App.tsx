@@ -133,17 +133,22 @@ const App: React.FC = () => {
       let parsed = q;
       if (typeof q === 'string') {
           try { 
-              parsed = JSON.parse(q); 
-              if (typeof parsed === 'string') {
-                  parsed = JSON.parse(parsed);
-              }
+              const temp = JSON.parse(q); 
+              parsed = typeof temp === 'string' ? JSON.parse(temp) : temp;
           } catch(e) { 
               return { title: '', description: '', questions: [] }; 
           }
       }
 
+      // Vital check: parsed could be null if q was "null" or undefined
+      if (!parsed || typeof parsed !== 'object') {
+          return { title: '', description: '', questions: [] }; 
+      }
+
       // Helper to normalize options and answer
       const normalizeQuestion = (item: any) => {
+          if (!item || typeof item !== 'object') return { question_en: '', options: [], answer: '' };
+
           let normalized = { ...item };
 
           // Hide scripts
@@ -151,18 +156,19 @@ const App: React.FC = () => {
           delete normalized.extra_details_speech_script;
 
           // If options is string[] (new format)
-          if (Array.isArray(item.options) && typeof item.options[0] === 'string') {
-              const newOptions = item.options.map((opt: string, idx: number) => ({
+          if (Array.isArray(item.options) && item.options.length > 0 && typeof item.options[0] === 'string') {
+              const newOptions = item.options.map((opt: any, idx: number) => ({
                   label: String.fromCharCode(65 + idx), // A, B, C...
-                  text_en: opt,
-                  text_hi: opt // Fallback for Hindi as new format usually provides English options in the array
+                  text_en: String(opt || ''),
+                  text_hi: String(opt || '') // Fallback
               }));
               
               // Find answer label by text matching
               let answerLabel = item.answer;
               if (item.answer) {
+                  const ansStr = String(item.answer).toLowerCase().trim();
                   // Some answers might be exact strings from options
-                  const matchingOpt = newOptions.find((o: any) => o.text_en.toLowerCase() === String(item.answer).toLowerCase());
+                  const matchingOpt = newOptions.find((o: any) => o.text_en.toLowerCase().trim() === ansStr);
                   if (matchingOpt) {
                       answerLabel = matchingOpt.label;
                   }
