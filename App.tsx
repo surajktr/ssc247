@@ -11,7 +11,7 @@ import {
   Loader2, Calendar, PlayCircle, RotateCcw, 
   Lock, ChevronDown, ChevronRight, ChevronUp, FileText, ArrowLeft, 
   ZoomOut, ZoomIn, Eye, EyeOff, BookOpen, Clock, ChevronLeft, DownloadCloud,
-  Layers
+  Layers, Download
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -327,8 +327,16 @@ const App: React.FC = () => {
       const from = pageToFetch * BATCH_SIZE;
       const to = from + BATCH_SIZE - 1;
       
-      // Always fetch questions to display counts immediately
-      const selectFields = 'id, upload_date, questions';
+      // Default: Fetch id, date, and FULL questions JSON
+      let selectFields = 'id, upload_date, questions';
+      
+      // OPTIMIZATION for Topic Wise:
+      // Fetch only metadata (title, description) from the JSONB column to reduce payload size.
+      // This allows the list to load fast. The full content is loaded on click.
+      if (source === 'topic') {
+          // Using JSON arrow operators to select specific fields
+          selectFields = 'id, upload_date, questions->title, questions->description'; 
+      }
 
       try {
           const { data, error } = await supabase
@@ -595,25 +603,38 @@ const App: React.FC = () => {
   const startQuiz = async (entry: CurrentAffairEntry, isPreLoaded = false) => {
       let entryToUse = entry;
       
-      // Fetch full content if it wasn't preloaded
-      if (!isPreLoaded) {
+      // Fetch full content if it wasn't preloaded or if it's a lightweight topic entry
+      // Lazy load check: if questions array is empty, we must fetch
+      const needsFetch = !isPreLoaded && (!entry.questions?.questions || entry.questions.questions.length === 0);
+
+      if (needsFetch) {
            setLoadingAction(true);
            try {
                const fullData = await fetchEntryById(entry.id);
                if (fullData) {
                    entryToUse = fullData;
-               } else {
-                   if (!entry.questions?.questions?.length) {
-                       alert("Content unavailable. Please check your connection.");
-                       setLoadingAction(false);
-                       return;
-                   }
+               } 
+               
+               // Validate content availability on the fetched data
+               if (!entryToUse.questions?.questions?.length) {
+                   alert("Content unavailable. Please check your connection.");
+                   setLoadingAction(false);
+                   return;
                }
            } catch (e) {
                console.error(e);
+               alert("Failed to load quiz content.");
+               setLoadingAction(false);
+               return;
            } finally {
                setLoadingAction(false);
            }
+      } else {
+          // Even if we think we have data, double check validity for pre-loaded
+          if (!entryToUse.questions?.questions?.length) {
+              alert("Content unavailable.");
+              return;
+          }
       }
 
       const progress = checkAndLoadProgress(entryToUse);
@@ -650,19 +671,20 @@ const App: React.FC = () => {
   };
 
   const handleReadingClick = async (entry: CurrentAffairEntry) => {
-      // 1. Immediately open interface with existing entry
       setActiveReadingEntry(entry);
       
-      // Only show skeleton if content is missing (e.g. partial fetch from deep link)
-      // Otherwise, assume data is fresh enough from main list fetch
-      const hasContent = entry.questions?.questions?.length > 0;
-      setIsReadingLoading(!hasContent);
+      // Determine if we need to fetch. 
+      // If questions array is empty, it's likely a partial entry from topic list.
+      const needsFetch = !entry.questions?.questions?.length;
+      setIsReadingLoading(needsFetch);
 
       try {
-          // 2. Fetch full content in background to ensure freshness or get complete details
-          const fullData = await fetchEntryById(entry.id);
-          if (fullData) {
-              setActiveReadingEntry(fullData);
+          if (needsFetch) {
+              // Always fetch to ensure we have full/fresh data
+              const fullData = await fetchEntryById(entry.id);
+              if (fullData) {
+                  setActiveReadingEntry(fullData);
+              }
           }
       } catch (e) {
           console.error(e);
@@ -805,6 +827,9 @@ const App: React.FC = () => {
                                             const result = quizResults[entry.id];
                                             const isResumable = savedProgressIds.has(entry.id);
                                             const qCount = entry.questions?.questions?.length || 0;
+                                            // Handle display for lazy-loaded topics where count might be 0 initially
+                                            const showCount = qCount > 0 ? `${qCount} Questions` : (entry.source === 'topic' ? 'Tap to load' : '0 Questions');
+                                            
                                             return (
                                                 <div key={entry.id} className="px-3 py-3 flex flex-row items-center justify-between gap-2 hover:bg-gray-50 transition-colors">
                                                     <div className="min-w-0 flex-1">
@@ -817,7 +842,11 @@ const App: React.FC = () => {
                                                                     <span className="mx-2 text-gray-300">•</span>
                                                                 </>
                                                             )}
-                                                            <span>{qCount} Questions</span>
+                                                            {currentAffairsTab === 'Topic Wise' && qCount === 0 ? (
+                                                                <span className="text-blue-500 flex items-center"><DownloadCloud className="w-3 h-3 mr-1" />{showCount}</span>
+                                                            ) : (
+                                                                <span>{showCount}</span>
+                                                            )}
                                                         </p>
                                                     </div>
                                                     <div className="shrink-0 flex items-center gap-2">
@@ -870,6 +899,8 @@ const App: React.FC = () => {
                         {readingItemsSlice.map(entry => {
                             const displayDate = new Date(entry.upload_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
                             const qCount = entry.questions?.questions?.length || 0;
+                            const showCount = qCount > 0 ? `${qCount} Questions` : (entry.source === 'topic' ? 'Tap to load' : '0 Questions');
+
                             return (
                                 <article key={entry.id} onClick={() => handleReadingClick(entry)} className="group flex flex-col p-4 rounded-xl border border-gray-100 bg-white hover:border-emerald-200 hover:shadow-md transition-all duration-200 cursor-pointer">
                                     <div className="flex items-center justify-between">
@@ -878,7 +909,7 @@ const App: React.FC = () => {
                                             <div>
                                                 <h3 className="text-sm font-bold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-1">{entry.questions?.title || `Daily Current Affairs ${displayDate}`}</h3>
                                                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                                    {qCount} Questions
+                                                    {showCount}
                                                     {/* Hide date if Topic Wise */}
                                                     {readingTab !== 'Topic Wise' && ` • ${displayDate}`}
                                                 </p>
