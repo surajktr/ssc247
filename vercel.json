@@ -1,7 +1,15 @@
 {
   "rewrites": [
     {
-      "source": "/((?!sitemap.xml).*)",
+      "source": "/score",
+      "destination": "/score/index.html"
+    },
+    {
+      "source": "/score/(.*)",
+      "destination": "/score/index.html"
+    },
+    {
+      "source": "/((?!sitemap.xml|score).*)",
       "destination": "/index.html"
     }
   ]
